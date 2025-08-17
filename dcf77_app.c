@@ -30,7 +30,7 @@ uint8_t get_dcf_message_bit(uint8_t* message, uint8_t bit)
 // should it still be const?
 static void update_dcf77_message_from_rtc(AppFSM* app_fsm)
 {
-    FuriHalRtcDateTime dt;
+    DateTime dt;
     furi_hal_rtc_get_datetime(&dt);
     app_fsm->bit_number = dt.second;
     app_fsm->next_message = malloc(8);
@@ -119,22 +119,15 @@ void dcf77_lf_init(int freq, AppFSM* app_fsm)
     // LL_TIM_OC_SetCompareCH1(FURI_HAL_RFID_READ_TIMER, period*duty_cycle);
     */
 
-    furi_hal_rfid_tim_reset();
     furi_hal_gpio_init_simple(&gpio_ext_pa7, GpioModeOutputPushPull);
     furi_hal_rfid_comp_set_callback(comparator_trigger_callback, app_fsm);
-    furi_hal_rfid_pins_read();
-    furi_hal_rfid_tim_read(freq, 0.5);
+    furi_hal_rfid_tim_read_start(freq, 0.5f);
 }
 
 void dcf77_mark(int freq)
 {
-        furi_hal_rfid_tim_reset();
-        furi_hal_rfid_tim_read(freq, 0.5);
         furi_hal_rfid_comp_start();
-        furi_hal_rfid_tim_read_start();
-        /* --- */
-        furi_hal_rfid_comp_stop();
-        furi_hal_rfid_tim_read_stop();
+        furi_hal_rfid_tim_read_start(freq, 0.5f);
 }
 
 void dcf77_space()
@@ -150,17 +143,12 @@ void dcf77_deinit()
     furi_hal_rfid_comp_set_callback(NULL, NULL);
     furi_hal_gpio_init_simple(&gpio_ext_pa7, GpioModeAnalog);
     furi_hal_rfid_tim_read_stop();
-    furi_hal_rfid_tim_reset();
     furi_hal_rfid_pins_reset();
 }
 
 static void render_callback(Canvas* const canvas, void* ctx)
 {
-    // const AppFSM* app_fsm = acquire_mutex((ValueMutex*)ctx, 25);
-    AppFSM* app_fsm = acquire_mutex((ValueMutex*)ctx, 25);
-    if(app_fsm == NULL) {
-        return;
-    }
+    AppFSM* app_fsm = ctx;
 
     char buffer[64];
     uint8_t yoffset = 9;
@@ -181,7 +169,7 @@ static void render_callback(Canvas* const canvas, void* ctx)
     canvas_draw_frame(canvas, 0, 0, 128, 64);
     canvas_set_font(canvas, FontPrimary);
     snprintf(buffer, 64, "%1x.%1x=%01x", bit_number/8, (bit_number%8), bit_value);
-    FuriHalRtcDateTime dt;
+    DateTime dt;
     furi_hal_rtc_get_datetime(&dt);
     //canvas_draw_str_aligned(canvas, 64, 10, AlignCenter, AlignBottom, "DCF77 emulator");
     snprintf(buffer, 64, "%02d:%02d %02d.%02d.%02d", app_fsm->tx_hour, app_fsm->tx_minute, app_fsm->tx_day, app_fsm->tx_month,
@@ -225,17 +213,18 @@ static void render_callback(Canvas* const canvas, void* ctx)
     underline_x = (bit_number%8) * 6 + 49;
     canvas_draw_line(canvas, underline_x, 55, underline_x+4, 55);   // current byte
 
-    release_mutex((ValueMutex*)ctx, app_fsm);
 }
 
-static void input_callback(InputEvent* input_event, FuriMessageQueue* event_queue) {
+static void input_callback(InputEvent* input_event, void* ctx) {
+    FuriMessageQueue* event_queue = ctx;
     furi_assert(event_queue);
 
     AppEvent event = {.type = EventKeyPress, .input = *input_event};
     furi_message_queue_put(event_queue, &event, FuriWaitForever);
 }
 
-static void timer_tick_callback(FuriMessageQueue* event_queue) {
+static void timer_tick_callback(void* ctx) {
+    FuriMessageQueue* event_queue = ctx;
     furi_assert(event_queue);
 
     AppEvent event = {.type = EventTimerTick};
@@ -276,7 +265,7 @@ static void on_timer_tick(AppFSM* app_fsm)
     static bool last_output = false;
     bool output = true;
 
-    FuriHalRtcDateTime dt;
+    DateTime dt;
     furi_hal_rtc_get_datetime(&dt);
     app_fsm->bit_number = dt.second;
     app_fsm->bit_value = get_dcf_message_bit(app_fsm->dcf77_message, app_fsm->bit_number);
@@ -351,15 +340,8 @@ int32_t dcf77_app_main(void* p) {
     AppFSM* app_fsm = malloc(sizeof(AppFSM));
     app_init(app_fsm, event_queue);
 
-    ValueMutex state_mutex;
-    if(!init_mutex(&state_mutex, app_fsm, sizeof(AppFSM))) {
-        FURI_LOG_E(TAG, "cannot create mutex\r\n");
-        free(app_fsm);
-        return 255;
-    }
-
     ViewPort* view_port = view_port_alloc();
-    view_port_draw_callback_set(view_port, render_callback, &state_mutex);
+    view_port_draw_callback_set(view_port, render_callback, app_fsm);
     view_port_input_callback_set(view_port, input_callback, event_queue);
 
     // Open GUI and register view_port
@@ -375,13 +357,11 @@ int32_t dcf77_app_main(void* p) {
     }
 
 
-    DOLPHIN_DEED(DolphinDeedPluginGameStart);
+    dolphin_deed(DolphinDeedPluginGameStart);
 
     AppEvent event;
     for(bool processing = true; processing;) {
         FuriStatus event_status = furi_message_queue_get(event_queue, &event, 100);
-
-        AppFSM* app_fsm = (AppFSM*)acquire_mutex_block(&state_mutex);
 
         if(event_status == FuriStatusOk) {
             // kepress events
@@ -422,7 +402,6 @@ int32_t dcf77_app_main(void* p) {
         }
 
         view_port_update(view_port);
-        release_mutex(&state_mutex, app_fsm);
     }
     furi_hal_speaker_release();
     notification_message_block(notification, &seq_c_minor);
@@ -438,7 +417,6 @@ int32_t dcf77_app_main(void* p) {
     furi_record_close(RECORD_NOTIFICATION);
     view_port_free(view_port);
     furi_message_queue_free(event_queue);
-    delete_mutex(&state_mutex);
     free(app_fsm);
 
     return 0;
