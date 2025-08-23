@@ -254,6 +254,7 @@ static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
 static void app_deinit(AppFSM* const app_fsm) {
     dcf77_deinit();
     gpio_deinit();
+    furi_hal_light_set(LightRed | LightGreen | LightBlue, 0);
     app_fsm->buffer_swap_pending = false;
     free(app_fsm->dcf77_message);
     furi_timer_free(app_fsm->_timer);
