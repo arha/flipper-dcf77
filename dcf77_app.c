@@ -33,7 +33,6 @@ static void update_dcf77_message_from_rtc(AppFSM* app_fsm)
     DateTime dt;
     furi_hal_rtc_get_datetime(&dt);
     app_fsm->bit_number = dt.second;
-    app_fsm->next_message = malloc(8);
     /*
     set_dcf_message(app_fsm->next_message, dt.minute, dt.hour,
                     dt.day, dt.month, (uint8_t)(dt.year % 100), dt.weekday,
@@ -240,8 +239,6 @@ static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
     dcf77_lf_init(LF_FREQ, app_fsm);
     gpio_init();
 
-    app_fsm->dcf77_message = malloc(8);  // message had 60 bits since 1959 and is unlikely to change
-    // app_fsm->next_message = malloc(8);
     update_dcf77_message_from_rtc(app_fsm);
     app_fsm->baseband_counter = 0;
 
@@ -256,7 +253,6 @@ static void app_deinit(AppFSM* const app_fsm) {
     gpio_deinit();
     furi_hal_light_set(LightRed | LightGreen | LightBlue, 0);
     app_fsm->buffer_swap_pending = false;
-    free(app_fsm->dcf77_message);
     furi_timer_free(app_fsm->_timer);
 }
 
