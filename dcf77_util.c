@@ -28,10 +28,10 @@ void set_dcf_message(uint8_t* dest, uint8_t minute, uint8_t hour,
         p_minute ^= !!(bcd_minute & (1 << i));
         p_hour   ^= !!(bcd_hour & (1 << i));
 
-        p_date = !!(bcd_day & (1 << i));
-        p_date = !!(bcd_month & (1 << i));
-        p_date = !!(bcd_year & (1 << i));
-        p_date = !!((dow & 0x07) & (1 << i));
+        p_date ^= !!(bcd_day & (1 << i));
+        p_date ^= !!(bcd_month & (1 << i));
+        p_date ^= !!(bcd_year & (1 << i));
+        p_date ^= !!((dow & 0x07) & (1 << i));
     }
 
     dest[0] = (uint8_t)(civbits >> 7);
