@@ -61,6 +61,14 @@ static void update_dcf77_message_from_rtc(AppFSM* app_fsm)
     app_fsm->buffer_swap_pending = true;
 }
 
+static void swap_dcf77_message(AppFSM* app_fsm)
+{
+    if(app_fsm->buffer_swap_pending) {
+        memcpy(app_fsm->dcf77_message, app_fsm->next_message, 8);
+        app_fsm->buffer_swap_pending = false;
+    }
+}
+
 static void set_outputs(bool status, AppFSM* app_fsm)
 {
     UNUSED(app_fsm);
@@ -157,14 +165,6 @@ static void render_callback(Canvas* const canvas, void* ctx)
     uint8_t byte_ = app_fsm->dcf77_message[bit_number/8];
     char display_bits[9] = "00000000";
 
-    if (app_fsm->buffer_swap_pending)
-    {
-        memcpy(app_fsm->dcf77_message, app_fsm->next_message, 8);
-        canvas_draw_str_aligned(canvas, 112, 10, AlignCenter, AlignBottom, "*");
-        app_fsm->buffer_swap_pending = false;
-    }
-
-
     canvas_draw_frame(canvas, 0, 0, 128, 64);
     canvas_set_font(canvas, FontPrimary);
     snprintf(buffer, 64, "%1x.%1x=%01x", bit_number/8, (bit_number%8), bit_value);
@@ -240,6 +240,7 @@ static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
     gpio_init();
 
     update_dcf77_message_from_rtc(app_fsm);
+    swap_dcf77_message(app_fsm);
     app_fsm->baseband_counter = 0;
 
     app_fsm->_event_queue = event_queue;
@@ -290,6 +291,7 @@ static void on_timer_tick(AppFSM* app_fsm)
     if (dt.second == 0 && app_fsm->baseband_counter == 3)
     {
         update_dcf77_message_from_rtc(app_fsm);
+        swap_dcf77_message(app_fsm);
     }
 
     if (dt.second == 59)
