@@ -29,10 +29,6 @@
 // #define TIME_ZERO 15
 // #define TIME_ONE 5
 
-
-uint8_t dcf77_message_buffer[8];
-uint8_t dcf77_next_buffer[8];
-
 typedef enum {
     KeyNone,
     KeyUp,
@@ -65,8 +61,8 @@ typedef struct {
     uint8_t bit_number; // 0 - 59
     uint8_t bit_value;  // 0 or 1 for actual bits, 2 for end-of-minute marker
     uint8_t baseband_counter;   // 0 - 20, so we can generate 800 and 900 ms wide pulses (bit0 = 800ms = 16; bit1 = 900ms = 18; bit2 = 1000ms = 20)
-    uint8_t* dcf77_message; // these are 8 bytes which encode, LSB, every bit in the DCF77 message. see set_dcf_message()
-    uint8_t* next_message;
+    uint8_t dcf77_message[8]; // these are 8 bytes which encode, LSB, every bit in the DCF77 message. see set_dcf_message()
+    uint8_t next_message[8];
 
     bool buffer_swap_pending;
     bool debug_flag;

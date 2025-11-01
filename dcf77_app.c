@@ -235,9 +235,6 @@ static void timer_tick_callback(void* ctx) {
 static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
 
     app_fsm->counter = 0;
-    app_fsm->dcf77_message = &dcf77_message_buffer[0];
-    app_fsm->next_message = &dcf77_next_buffer[0];
-
     dcf77_lf_init(LF_FREQ, app_fsm);
     gpio_init();
 
