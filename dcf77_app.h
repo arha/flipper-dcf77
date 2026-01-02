@@ -14,6 +14,7 @@
 #include <lib/subghz/receiver.h>
 #include <lib/subghz/transmitter.h>
 #include <lib/subghz/subghz_file_encoder_worker.h>
+#include <lib/subghz/devices/cc1101_configs.h>
 #include <notification/notification.h>
 #include <notification/notification_messages.h>
 
@@ -25,6 +26,7 @@
 #define TIME_ZERO 24
 #define TIME_ONE 27
 #define LF_FREQ 77500 * 2
+#define SUBGHZ_FREQ 433670000
 #define OUTPUT_PIN &gpio_ext_pc3
 // #define TIME_ZERO 15
 // #define TIME_ONE 5
@@ -61,11 +63,14 @@ typedef struct {
     uint8_t bit_number; // 0 - 59
     uint8_t bit_value;  // 0 or 1 for actual bits, 2 for end-of-minute marker
     uint8_t baseband_counter;   // 0 - 20, so we can generate 800 and 900 ms wide pulses (bit0 = 800ms = 16; bit1 = 900ms = 18; bit2 = 1000ms = 20)
+    bool output_state;
     uint8_t dcf77_message[8]; // these are 8 bytes which encode, LSB, every bit in the DCF77 message. see set_dcf_message()
     uint8_t next_message[8];
 
     bool buffer_swap_pending;
     bool debug_flag;
+    bool subghz_enabled;
+    bool subghz_output;
 
     uint8_t tx_minute;
     uint8_t tx_hour;

@@ -91,6 +91,41 @@ static void set_outputs(bool status, AppFSM* app_fsm)
     last = status;
 }
 
+static void subghz_init(AppFSM* app_fsm)
+{
+    app_fsm->subghz_enabled = false;
+    app_fsm->subghz_output = false;
+    furi_hal_subghz_reset();
+    furi_hal_subghz_load_custom_preset(subghz_device_cc1101_preset_ook_270khz_async_regs);
+    furi_hal_subghz_set_frequency_and_path(SUBGHZ_FREQ);
+    furi_hal_subghz_idle();
+}
+
+static void subghz_set_output(bool status, AppFSM* app_fsm)
+{
+    if(!app_fsm->subghz_enabled) {
+        status = false;
+    }
+
+    if(app_fsm->subghz_output != status) {
+        if(status) {
+            if(!furi_hal_subghz_tx()) {
+                status = false;
+            }
+        } else {
+            furi_hal_subghz_idle();
+        }
+        app_fsm->subghz_output = status;
+    }
+}
+
+static void subghz_deinit(AppFSM* app_fsm)
+{
+    UNUSED(app_fsm);
+    furi_hal_subghz_idle();
+    furi_hal_subghz_sleep();
+}
+
 static void comparator_trigger_callback(bool level, void *comp_ctx) {
     UNUSED(comp_ctx);
     furi_hal_gpio_write(&gpio_ext_pa7, !level);
@@ -237,10 +272,12 @@ static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
     app_fsm->counter = 0;
     dcf77_lf_init(LF_FREQ, app_fsm);
     gpio_init();
+    subghz_init(app_fsm);
 
     update_dcf77_message_from_rtc(app_fsm);
     swap_dcf77_message(app_fsm);
     app_fsm->baseband_counter = 0;
+    app_fsm->output_state = false;
 
     app_fsm->_event_queue = event_queue;
     FuriTimer* timer = furi_timer_alloc(timer_tick_callback, FuriTimerTypePeriodic, app_fsm->_event_queue);
@@ -250,6 +287,7 @@ static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
 
 static void app_deinit(AppFSM* const app_fsm) {
     dcf77_deinit();
+    subghz_deinit(app_fsm);
     gpio_deinit();
     furi_hal_light_set(LightRed | LightGreen | LightBlue, 0);
     app_fsm->buffer_swap_pending = false;
@@ -313,16 +351,19 @@ static void on_timer_tick(AppFSM* app_fsm)
 
     if (last_output != output)
     {
+        app_fsm->output_state = output;
         set_outputs(output, app_fsm);
         if (!output)
         {
             dcf77_space();
             gpio_space();
+            subghz_set_output(false, app_fsm);
         }
         else
         {
             dcf77_mark(LF_FREQ);
             gpio_mark();
+            subghz_set_output(true, app_fsm);
         }
     }
 
@@ -374,6 +415,8 @@ int32_t dcf77_app_main(void* p) {
                         break;
                     case InputKeyRight:
                         app_fsm->last_key = KeyRight;
+                        app_fsm->subghz_enabled = !app_fsm->subghz_enabled;
+                        subghz_set_output(app_fsm->output_state, app_fsm);
                         break;
                     case InputKeyLeft:
                         app_fsm->last_key = KeyLeft;
