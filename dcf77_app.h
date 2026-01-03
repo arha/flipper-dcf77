@@ -25,7 +25,8 @@
 #define TIMER_HZ 30
 #define TIME_ZERO 24
 #define TIME_ONE 27
-#define LF_FREQ 77500 * 2
+#define LF_FREQ_LOW 77500
+#define LF_FREQ_HIGH (77500 * 2)
 #define SUBGHZ_FREQ 433670000
 #define OUTPUT_PIN &gpio_ext_pc3
 // #define TIME_ZERO 15
@@ -59,6 +60,7 @@ typedef struct {
     FuriMessageQueue* _event_queue;
 
     int counter;
+    uint32_t lf_freq;
 
     uint8_t bit_number; // 0 - 59
     uint8_t bit_value;  // 0 or 1 for actual bits, 2 for end-of-minute marker
@@ -69,6 +71,8 @@ typedef struct {
 
     bool buffer_swap_pending;
     bool debug_flag;
+    bool lf_ready;
+    bool subghz_ready;
     bool subghz_enabled;
     bool subghz_output;
 

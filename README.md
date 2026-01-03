@@ -15,6 +15,8 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 * The antenna is highly mistuned for this purpose (sending 77500Hz on a 125000Hz aerial is about 33% off). You can try the 155k harmonic, which is only 20% off. I have seen working attempts using speaker generated EMF at 15500 Hz.
 * Combine the slow signal, wonky software timer and very mistuned antenna and YMMV
 * Debug output on 433.670 MHz, if the region allows it so you can listen to it with a NFM receiver
+* Press Up to toggle LF output between 77.5kHz and 155kHz
+* Press Right to toggle the 433.670 debug output
 
 # todo
 

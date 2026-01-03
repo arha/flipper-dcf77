@@ -91,46 +91,80 @@ static void set_outputs(bool status, AppFSM* app_fsm)
     last = status;
 }
 
+void dcf77_lf_init(int freq, AppFSM* app_fsm);
+void dcf77_mark(int freq);
+void dcf77_space(void);
+void dcf77_deinit(void);
+
 static void subghz_init(AppFSM* app_fsm)
 {
+    if(app_fsm->subghz_ready) {
+        return;
+    }
     app_fsm->subghz_enabled = false;
     app_fsm->subghz_output = false;
     furi_hal_subghz_reset();
     furi_hal_subghz_load_custom_preset(subghz_device_cc1101_preset_ook_270khz_async_regs);
     furi_hal_subghz_set_frequency_and_path(SUBGHZ_FREQ);
-    furi_hal_subghz_idle();
+    furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
+    app_fsm->subghz_ready = true;
 }
 
-static void subghz_set_output(bool status, AppFSM* app_fsm)
+static void subghz_toggle(AppFSM* app_fsm)
 {
-    if(!app_fsm->subghz_enabled) {
-        status = false;
+    if(!app_fsm->subghz_ready) {
+        subghz_init(app_fsm);
     }
-
-    if(app_fsm->subghz_output != status) {
-        if(status) {
-            if(!furi_hal_subghz_tx()) {
-                status = false;
-            }
+    app_fsm->subghz_enabled = !app_fsm->subghz_enabled;
+    if(app_fsm->subghz_enabled) {
+        furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeOutputPushPull, GpioPullNo, GpioSpeedLow);
+        furi_hal_gpio_write(&gpio_cc1101_g0, app_fsm->output_state);
+        if(!furi_hal_subghz_tx()) {
+            furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
+            app_fsm->subghz_enabled = false;
+            app_fsm->subghz_output = false;
         } else {
-            furi_hal_subghz_idle();
+            app_fsm->subghz_output = app_fsm->output_state;
         }
-        app_fsm->subghz_output = status;
+    } else {
+        furi_hal_gpio_write(&gpio_cc1101_g0, false);
+        furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
+        furi_hal_subghz_idle();
+        app_fsm->subghz_output = false;
     }
 }
 
 static void subghz_deinit(AppFSM* app_fsm)
 {
-    UNUSED(app_fsm);
+    if(!app_fsm->subghz_ready) {
+        return;
+    }
+    furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
     furi_hal_subghz_idle();
     furi_hal_subghz_sleep();
 }
 
-static void comparator_trigger_callback(bool level, void *comp_ctx) {
-    UNUSED(comp_ctx);
-    furi_hal_gpio_write(&gpio_ext_pa7, !level);
+static void dcf77_set_lf_freq(AppFSM* app_fsm, uint32_t freq)
+{
+    if(app_fsm->lf_ready) {
+        dcf77_deinit();
+    }
+    app_fsm->lf_freq = freq;
+    dcf77_lf_init(app_fsm->lf_freq, app_fsm);
+    app_fsm->lf_ready = true;
+    if(app_fsm->output_state) {
+        dcf77_mark(app_fsm->lf_freq);
+    } else {
+        dcf77_space();
+    }
 }
 
+static void subghz_apply_output(AppFSM* app_fsm)
+{
+    if(app_fsm->subghz_enabled) {
+        furi_hal_gpio_write(&gpio_cc1101_g0, app_fsm->output_state);
+    }
+}
 
 void gpio_init()
 {
@@ -156,36 +190,29 @@ void gpio_deinit()
 
 void dcf77_lf_init(int freq, AppFSM* app_fsm)
 {
-    UNUSED(freq);
+    UNUSED(app_fsm);
     /* // this ends up doing
     // LL_TIM_SetAutoReload(FURI_HAL_RFID_READ_TIMER, period);
     // LL_TIM_OC_SetCompareCH1(FURI_HAL_RFID_READ_TIMER, period*duty_cycle);
     */
-
-    furi_hal_gpio_init_simple(&gpio_ext_pa7, GpioModeOutputPushPull);
-    furi_hal_rfid_comp_set_callback(comparator_trigger_callback, app_fsm);
-}
-
-void dcf77_mark(int freq)
-{
-        furi_hal_rfid_comp_stop();
-        furi_hal_rfid_tim_read_stop();
-        furi_hal_rfid_comp_start();
-        furi_hal_rfid_tim_read_start(freq, 0.5f);
+    furi_hal_rfid_tim_read_start(freq, 0.5f);
+    furi_hal_rfid_tim_read_pause();
 }
 
 void dcf77_space()
 {
-        furi_hal_rfid_comp_stop();
-        furi_hal_rfid_tim_read_stop();
+    furi_hal_rfid_tim_read_pause();
+}
+
+void dcf77_mark(int freq)
+{
+    UNUSED(freq);
+    furi_hal_rfid_tim_read_continue();
 }
 
 void dcf77_deinit()
 {
     dcf77_space();
-    furi_hal_rfid_comp_stop();
-    furi_hal_rfid_comp_set_callback(NULL, NULL);
-    furi_hal_gpio_init_simple(&gpio_ext_pa7, GpioModeAnalog);
     furi_hal_rfid_tim_read_stop();
     furi_hal_rfid_pins_reset();
 }
@@ -270,14 +297,16 @@ static void timer_tick_callback(void* ctx) {
 static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
 
     app_fsm->counter = 0;
-    dcf77_lf_init(LF_FREQ, app_fsm);
+    app_fsm->lf_ready = false;
+    app_fsm->lf_freq = LF_FREQ_LOW;
+    app_fsm->subghz_ready = false;
     gpio_init();
-    subghz_init(app_fsm);
 
     update_dcf77_message_from_rtc(app_fsm);
     swap_dcf77_message(app_fsm);
     app_fsm->baseband_counter = 0;
     app_fsm->output_state = false;
+    dcf77_set_lf_freq(app_fsm, app_fsm->lf_freq);
 
     app_fsm->_event_queue = event_queue;
     FuriTimer* timer = furi_timer_alloc(timer_tick_callback, FuriTimerTypePeriodic, app_fsm->_event_queue);
@@ -286,7 +315,9 @@ static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
 }
 
 static void app_deinit(AppFSM* const app_fsm) {
-    dcf77_deinit();
+    if(app_fsm->lf_ready) {
+        dcf77_deinit();
+    }
     subghz_deinit(app_fsm);
     gpio_deinit();
     furi_hal_light_set(LightRed | LightGreen | LightBlue, 0);
@@ -357,14 +388,13 @@ static void on_timer_tick(AppFSM* app_fsm)
         {
             dcf77_space();
             gpio_space();
-            subghz_set_output(false, app_fsm);
         }
         else
         {
-            dcf77_mark(LF_FREQ);
+            dcf77_mark(app_fsm->lf_freq);
             gpio_mark();
-            subghz_set_output(true, app_fsm);
         }
+        subghz_apply_output(app_fsm);
     }
 
     last_second = dt.second;
@@ -409,14 +439,16 @@ int32_t dcf77_app_main(void* p) {
                     switch(event.input.key) {
                     case InputKeyUp:
                         app_fsm->last_key = KeyUp;
+                        dcf77_set_lf_freq(
+                            app_fsm,
+                            app_fsm->lf_freq == LF_FREQ_LOW ? LF_FREQ_HIGH : LF_FREQ_LOW);
                         break;
                     case InputKeyDown:
                         app_fsm->last_key = KeyDown;
                         break;
                     case InputKeyRight:
                         app_fsm->last_key = KeyRight;
-                        app_fsm->subghz_enabled = !app_fsm->subghz_enabled;
-                        subghz_set_output(app_fsm->output_state, app_fsm);
+                        subghz_toggle(app_fsm);
                         break;
                     case InputKeyLeft:
                         app_fsm->last_key = KeyLeft;
