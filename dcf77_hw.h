@@ -17,7 +17,10 @@ void dcf77_lf_apply_output(const AppFSM* app_fsm);
 void dcf77_lf_deinit(AppFSM* app_fsm);
 
 void dcf77_subghz_toggle(AppFSM* app_fsm);
-void dcf77_subghz_apply_output(const AppFSM* app_fsm);
+void dcf77_subghz_apply_output(AppFSM* app_fsm);
 void dcf77_subghz_deinit(AppFSM* app_fsm);
+
+void dcf77_subghz_ook_toggle(AppFSM* app_fsm);
+void dcf77_subghz_ook_apply_output(const AppFSM* app_fsm);
 
 #endif

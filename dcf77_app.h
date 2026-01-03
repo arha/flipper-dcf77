@@ -28,6 +28,7 @@
 #define LF_FREQ_LOW 77500
 #define LF_FREQ_HIGH (77500 * 2)
 #define SUBGHZ_FREQ 433670000
+#define SUBGHZ_FSK_HALF_PERIOD_US 2273
 #define OUTPUT_PIN &gpio_ext_pc3
 // #define TIME_ZERO 15
 // #define TIME_ONE 5
@@ -76,7 +77,9 @@ typedef struct AppFSM {
     bool lf_ready;
     bool subghz_ready;
     bool subghz_enabled;
+    bool subghz_async_tx;
     bool subghz_output;
+    bool subghz_tone_phase;
 
     uint8_t tx_minute;
     uint8_t tx_hour;
