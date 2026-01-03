@@ -7,275 +7,104 @@
 #include <notification/notification_messages.h>
 
 #include "dcf77_app.h"
+#include "dcf77_hw.h"
+#include "dcf77_logic.h"
 
-uint8_t get_dcf_message_bit(uint8_t* message, uint8_t bit)
-{
-    if (bit == 59 || bit == 0)
-    {
-        return 0;
-    }
+const NotificationSequence seq_c_minor = {
+    &message_note_c4,
+    &message_delay_100,
+    &message_sound_off,
+    &message_delay_10,
+    &message_note_ds4,
+    &message_delay_100,
+    &message_sound_off,
+    &message_delay_10,
+    &message_note_g4,
+    &message_delay_100,
+    &message_sound_off,
+    &message_delay_10,
+    &message_vibro_on,
+    &message_delay_50,
+    &message_vibro_off,
+    NULL,
+};
 
-    uint8_t byte_ = bit / 8;
-    uint8_t bit_ = bit % 8;
+const char* const dcf77_bitnames[] = {
+    "Start minute", "Civil 1",   "Civil 2",   "Civil 3",  "Civil 4",
+    "Civil 5",      "Civil 6",   "Civil 7",   "Civil 8",  "Civil 9",
+    "Civil 10",     "Civil 11",  "Civil 12",  "Civil 13", "Civil 14",
+    "Abnormal",     "DST change","UTC+02",    "UTC+01",   "Leap sec",
+    "Start time",   "Minutes 1", "Minutes 2", "Minutes 3","Minutes 4",
+    "Minutes 5",    "Minutes 6", "Minutes 7", "Minutes P","Hours 1",
+    "Hours 2",      "Hours 3",   "Hours 4",   "Hours 5",  "Hours 6",
+    "Hours P",      "Day 1",     "Day 2",     "Day 3",    "Day 4",
+    "Day 5",        "Day 6",     "Weekday 1", "Weekday 2","Weekday 4",
+    "Month 1",      "Month 2",   "Month 3",   "Month 4",  "Month 5",
+    "Year 1",       "Year 2",    "Year 3",    "Year 4",   "Year 5",
+    "Year 6",       "Year 7",    "Year 8",    "Date P",   "End",
+};
 
-    uint8_t bit_value = *(message+byte_) & (1 << (7-bit_));
-
-    if (!!bit_value)
-    {
-        return 1;
-    }
-    return 0;
-}
-
-// should it still be const?
-static void update_dcf77_message_from_rtc(AppFSM* app_fsm)
-{
-    DateTime dt;
-    furi_hal_rtc_get_datetime(&dt);
-    app_fsm->bit_number = dt.second;
-    /*
-    set_dcf_message(app_fsm->next_message, dt.minute, dt.hour,
-                    dt.day, dt.month, (uint8_t)(dt.year % 100), dt.weekday,
-                    false, false, false, false, 0x0000);
-                    */
-
-    //set_dcf_message(app_fsm->next_message, 41, 17, 27, 12, 22, 2, false, false, false, false, 0x0000);
-
-    app_fsm->tx_hour = 17;
-    app_fsm->tx_minute = 41;
-    app_fsm->tx_day = 27;
-    app_fsm->tx_month = 12;
-    app_fsm->tx_year = 22;
-    app_fsm->tx_dow = 2;
-
-
-    app_fsm->tx_hour = dt.hour;
-    app_fsm->tx_minute = dt.minute;
-    app_fsm->tx_day = dt.day;
-    app_fsm->tx_month = dt.month;
-    app_fsm->tx_year = dt.year % 100;
-    app_fsm->tx_dow = dt.weekday;
-
-    set_dcf_message(app_fsm->next_message, app_fsm->tx_minute, app_fsm->tx_hour, app_fsm->tx_day, app_fsm->tx_month,
-                    app_fsm->tx_year, app_fsm->tx_dow, false, false, false, false, 0x0000);
-    app_fsm->buffer_swap_pending = true;
-}
-
-static void swap_dcf77_message(AppFSM* app_fsm)
-{
-    if(app_fsm->buffer_swap_pending) {
-        memcpy(app_fsm->dcf77_message, app_fsm->next_message, 8);
-        app_fsm->buffer_swap_pending = false;
-    }
-}
-
-static void set_outputs(bool status, AppFSM* app_fsm)
-{
-    UNUSED(app_fsm);
-    static bool last;
-    if (last != status)
-    {
-        if (status)
-        {
-            furi_hal_light_set(LightRed, 0xFF);
-            furi_hal_light_set(LightGreen, 0x1F);
-            // furi_hal_speaker_start(50, 1);
-
-        }
-        else
-        {
-            furi_hal_light_set(LightRed | LightGreen | LightBlue, 0);
-            // furi_hal_speaker_stop();
-        }
-    }
-    last = status;
-}
-
-void dcf77_lf_init(int freq, AppFSM* app_fsm);
-void dcf77_mark(int freq);
-void dcf77_space(void);
-void dcf77_deinit(void);
-
-static void subghz_init(AppFSM* app_fsm)
-{
-    if(app_fsm->subghz_ready) {
-        return;
-    }
-    app_fsm->subghz_enabled = false;
-    app_fsm->subghz_output = false;
-    furi_hal_subghz_reset();
-    furi_hal_subghz_load_custom_preset(subghz_device_cc1101_preset_ook_270khz_async_regs);
-    furi_hal_subghz_set_frequency_and_path(SUBGHZ_FREQ);
-    furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
-    app_fsm->subghz_ready = true;
-}
-
-static void subghz_toggle(AppFSM* app_fsm)
-{
-    if(!app_fsm->subghz_ready) {
-        subghz_init(app_fsm);
-    }
-    app_fsm->subghz_enabled = !app_fsm->subghz_enabled;
-    if(app_fsm->subghz_enabled) {
-        furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeOutputPushPull, GpioPullNo, GpioSpeedLow);
-        furi_hal_gpio_write(&gpio_cc1101_g0, app_fsm->output_state);
-        if(!furi_hal_subghz_tx()) {
-            furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
-            app_fsm->subghz_enabled = false;
-            app_fsm->subghz_output = false;
-        } else {
-            app_fsm->subghz_output = app_fsm->output_state;
-        }
-    } else {
-        furi_hal_gpio_write(&gpio_cc1101_g0, false);
-        furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
-        furi_hal_subghz_idle();
-        app_fsm->subghz_output = false;
-    }
-}
-
-static void subghz_deinit(AppFSM* app_fsm)
-{
-    if(!app_fsm->subghz_ready) {
-        return;
-    }
-    furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
-    furi_hal_subghz_idle();
-    furi_hal_subghz_sleep();
-}
-
-static void dcf77_set_lf_freq(AppFSM* app_fsm, uint32_t freq)
-{
-    if(app_fsm->lf_ready) {
-        dcf77_deinit();
-    }
-    app_fsm->lf_freq = freq;
-    dcf77_lf_init(app_fsm->lf_freq, app_fsm);
-    app_fsm->lf_ready = true;
-    if(app_fsm->output_state) {
-        dcf77_mark(app_fsm->lf_freq);
-    } else {
-        dcf77_space();
-    }
-}
-
-static void subghz_apply_output(AppFSM* app_fsm)
-{
-    if(app_fsm->subghz_enabled) {
-        furi_hal_gpio_write(&gpio_cc1101_g0, app_fsm->output_state);
-    }
-}
-
-void gpio_init()
-{
-    furi_hal_gpio_write(OUTPUT_PIN, false);
-    furi_hal_gpio_init(OUTPUT_PIN, GpioModeOutputPushPull, GpioPullNo, GpioSpeedVeryHigh);
-}
-
-void gpio_mark()
-{
-    furi_hal_gpio_write(OUTPUT_PIN, true);
-}
-
-
-void gpio_space()
-{
-    furi_hal_gpio_write(OUTPUT_PIN, false);
-}
-
-void gpio_deinit()
-{
-    furi_hal_gpio_init(OUTPUT_PIN, GpioModeAnalog, GpioPullNo, GpioSpeedVeryHigh);
-}
-
-void dcf77_lf_init(int freq, AppFSM* app_fsm)
-{
-    UNUSED(app_fsm);
-    /* // this ends up doing
-    // LL_TIM_SetAutoReload(FURI_HAL_RFID_READ_TIMER, period);
-    // LL_TIM_OC_SetCompareCH1(FURI_HAL_RFID_READ_TIMER, period*duty_cycle);
-    */
-    furi_hal_rfid_tim_read_start(freq, 0.5f);
-    furi_hal_rfid_tim_read_pause();
-}
-
-void dcf77_space()
-{
-    furi_hal_rfid_tim_read_pause();
-}
-
-void dcf77_mark(int freq)
-{
-    UNUSED(freq);
-    furi_hal_rfid_tim_read_continue();
-}
-
-void dcf77_deinit()
-{
-    dcf77_space();
-    furi_hal_rfid_tim_read_stop();
-    furi_hal_rfid_pins_reset();
-}
-
-static void render_callback(Canvas* const canvas, void* ctx)
-{
+static void render_callback(Canvas* const canvas, void* ctx) {
     AppFSM* app_fsm = ctx;
-
     char buffer[64];
-    uint8_t yoffset = 9;
-    uint8_t bit_number = app_fsm->bit_number;
-    uint8_t bit_value = app_fsm->bit_value;
-    uint8_t underline_x = (bit_number/8) * 12 + 16;
-    uint8_t byte_ = app_fsm->dcf77_message[bit_number/8];
+    const uint8_t yoffset = 9;
+    const uint8_t bit_number = app_fsm->bit_number;
+    const uint8_t bit_value = app_fsm->bit_value;
+    uint8_t underline_x = (bit_number / 8) * 12 + 16;
+    const uint8_t byte = app_fsm->dcf77_message[bit_number / 8];
     char display_bits[9] = "00000000";
 
     canvas_draw_frame(canvas, 0, 0, 128, 64);
+
     canvas_set_font(canvas, FontPrimary);
-    snprintf(buffer, 64, "%1x.%1x=%01x", bit_number/8, (bit_number%8), bit_value);
-    DateTime dt;
-    furi_hal_rtc_get_datetime(&dt);
-    //canvas_draw_str_aligned(canvas, 64, 10, AlignCenter, AlignBottom, "DCF77 emulator");
-    snprintf(buffer, 64, "%02d:%02d %02d.%02d.%02d", app_fsm->tx_hour, app_fsm->tx_minute, app_fsm->tx_day, app_fsm->tx_month,
-             app_fsm->tx_year);
+    snprintf(
+        buffer,
+        sizeof(buffer),
+        "%02d:%02d %02d.%02d.%02d",
+        app_fsm->tx_hour,
+        app_fsm->tx_minute,
+        app_fsm->tx_day,
+        app_fsm->tx_month,
+        app_fsm->tx_year);
     canvas_draw_str_aligned(canvas, 64, 10, AlignCenter, AlignBottom, buffer);
 
-    if (app_fsm->debug_flag)
-    {
+    if(app_fsm->debug_flag) {
         canvas_draw_str_aligned(canvas, 8, 10, AlignCenter, AlignBottom, "D");
     }
 
-    snprintf(buffer, 64, "%1x.%1x=%01x", bit_number/8, (bit_number%8), bit_value);
     canvas_set_font(canvas, FontSecondary);
+    snprintf(buffer, sizeof(buffer), "%1x.%1x=%01x", bit_number / 8, bit_number % 8, bit_value);
     canvas_draw_str_aligned(canvas, 64, 24 + (9 - yoffset), AlignCenter, AlignBottom, buffer);
 
-    snprintf(buffer, 64, "%s (bit %d)", dcf77_bitnames[bit_number], bit_value);
-    canvas_set_font(canvas, FontSecondary);
+    snprintf(buffer, sizeof(buffer), "%s (bit %d)", dcf77_bitnames[bit_number], bit_value);
     canvas_draw_str_aligned(canvas, 64, 34 + (9 - yoffset), AlignCenter, AlignBottom, buffer);
 
-
-    
-    snprintf(buffer, 64, "%02x%02x%02x%02x%02x%02x%02x%02x",
-             app_fsm->dcf77_message[0], app_fsm->dcf77_message[1], app_fsm->dcf77_message[2], app_fsm->dcf77_message[3],
-             app_fsm->dcf77_message[4], app_fsm->dcf77_message[5], app_fsm->dcf77_message[6], app_fsm->dcf77_message[7] );
     canvas_set_font(canvas, FontKeyboard);
+    snprintf(
+        buffer,
+        sizeof(buffer),
+        "%02x%02x%02x%02x%02x%02x%02x%02x",
+        app_fsm->dcf77_message[0],
+        app_fsm->dcf77_message[1],
+        app_fsm->dcf77_message[2],
+        app_fsm->dcf77_message[3],
+        app_fsm->dcf77_message[4],
+        app_fsm->dcf77_message[5],
+        app_fsm->dcf77_message[6],
+        app_fsm->dcf77_message[7]);
     canvas_draw_str_aligned(canvas, 64, 44 + (9 - yoffset), AlignCenter, AlignBottom, buffer);
-     
 
-    canvas_draw_line(canvas, underline_x, 45, underline_x+10, 45);
-    for(int i = 0; i < 8; i++)
-    {
-        if ((byte_ & (1 << (7-i))) != 0)
-        {
+    canvas_draw_line(canvas, underline_x, 45, underline_x + 10, 45);
+    for(int i = 0; i < 8; i++) {
+        if(byte & (1 << (7 - i))) {
             display_bits[i] = '1';
         }
     }
 
-    canvas_set_font(canvas, FontKeyboard);
-    snprintf(buffer, 64, "%02x=%s", byte_, display_bits);
-    canvas_draw_str_aligned(canvas, 64, 54 + (9 - yoffset), AlignCenter, AlignBottom, buffer);  // whole message
-    underline_x = (bit_number%8) * 6 + 49;
-    canvas_draw_line(canvas, underline_x, 55, underline_x+4, 55);   // current byte
-
+    snprintf(buffer, sizeof(buffer), "%02x=%s", byte, display_bits);
+    canvas_draw_str_aligned(canvas, 64, 54 + (9 - yoffset), AlignCenter, AlignBottom, buffer);
+    underline_x = (bit_number % 8) * 6 + 49;
+    canvas_draw_line(canvas, underline_x, 55, underline_x + 4, 55);
 }
 
 static void input_callback(InputEvent* input_event, void* ctx) {
@@ -294,113 +123,49 @@ static void timer_tick_callback(void* ctx) {
     furi_message_queue_put(event_queue, &event, 0);
 }
 
-static void app_init(AppFSM* const app_fsm, FuriMessageQueue* event_queue) {
+static void app_init(AppFSM* app_fsm, FuriMessageQueue* event_queue) {
+    memset(app_fsm, 0, sizeof(*app_fsm));
 
-    app_fsm->counter = 0;
-    app_fsm->lf_ready = false;
     app_fsm->lf_freq = LF_FREQ_LOW;
-    app_fsm->subghz_ready = false;
-    gpio_init();
-
-    update_dcf77_message_from_rtc(app_fsm);
-    swap_dcf77_message(app_fsm);
-    app_fsm->baseband_counter = 0;
-    app_fsm->output_state = false;
-    dcf77_set_lf_freq(app_fsm, app_fsm->lf_freq);
-
     app_fsm->_event_queue = event_queue;
-    FuriTimer* timer = furi_timer_alloc(timer_tick_callback, FuriTimerTypePeriodic, app_fsm->_event_queue);
-    furi_timer_start(timer, furi_kernel_get_tick_frequency() / TIMER_HZ);
-    app_fsm->_timer = timer;
-}
 
-static void app_deinit(AppFSM* const app_fsm) {
-    if(app_fsm->lf_ready) {
-        dcf77_deinit();
-    }
-    subghz_deinit(app_fsm);
-    gpio_deinit();
-    furi_hal_light_set(LightRed | LightGreen | LightBlue, 0);
-    app_fsm->buffer_swap_pending = false;
-    furi_timer_free(app_fsm->_timer);
-}
-
-static void on_timer_tick(AppFSM* app_fsm)
-{
-    static uint8_t last_second = 61;
-    static bool last_output = false;
-    bool output = true;
+    dcf77_logic_init(app_fsm);
+    dcf77_output_gpio_init();
 
     DateTime dt;
     furi_hal_rtc_get_datetime(&dt);
-    app_fsm->bit_number = dt.second;
-    app_fsm->bit_value = get_dcf_message_bit(app_fsm->dcf77_message, app_fsm->bit_number);
+    dcf77_logic_refresh_message(app_fsm, &dt);
 
-    if (dt.second != last_second)
-    {
-        app_fsm->baseband_counter = 0;
-        output = true;
-    }
-    else
-    {
-        app_fsm->baseband_counter++;
-    }
+    dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
 
-    /*
-    if (app_fsm->baseband_counter < 8)
-    {
-        app_fsm->debug_flag = true;
-    }
-    else
-    {
-        app_fsm->debug_flag = false;
-    }*/
-
-    if (dt.second == 0 && app_fsm->baseband_counter == 3)
-    {
-        update_dcf77_message_from_rtc(app_fsm);
-        swap_dcf77_message(app_fsm);
-    }
-
-    if (dt.second == 59)
-    {
-        output = true;
-    }
-    else
-    {
-        if (app_fsm->baseband_counter > TIME_ZERO && app_fsm->bit_value == 0)
-        {
-            output = false;
-
-        }
-        else if (app_fsm->baseband_counter > TIME_ONE && app_fsm->bit_value == 1)
-        {
-            output = false;
-        }
-    }
-
-
-    if (last_output != output)
-    {
-        app_fsm->output_state = output;
-        set_outputs(output, app_fsm);
-        if (!output)
-        {
-            dcf77_space();
-            gpio_space();
-        }
-        else
-        {
-            dcf77_mark(app_fsm->lf_freq);
-            gpio_mark();
-        }
-        subghz_apply_output(app_fsm);
-    }
-
-    last_second = dt.second;
-    last_output = output;
+    app_fsm->_timer =
+        furi_timer_alloc(timer_tick_callback, FuriTimerTypePeriodic, app_fsm->_event_queue);
+    furi_timer_start(app_fsm->_timer, furi_kernel_get_tick_frequency() / TIMER_HZ);
 }
 
+static void app_deinit(AppFSM* app_fsm) {
+    dcf77_lf_deinit(app_fsm);
+    dcf77_subghz_deinit(app_fsm);
+    dcf77_output_gpio_deinit();
+    dcf77_hw_indicator_set(false);
+    furi_timer_free(app_fsm->_timer);
+}
+
+static void on_timer_tick(AppFSM* app_fsm) {
+    DateTime dt;
+    bool output_changed = false;
+    furi_hal_rtc_get_datetime(&dt);
+
+    const bool output = dcf77_logic_tick(app_fsm, &dt, &output_changed);
+    if(!output_changed) {
+        return;
+    }
+
+    dcf77_hw_indicator_set(output);
+    dcf77_output_gpio_set(output);
+    dcf77_lf_apply_output(app_fsm);
+    dcf77_subghz_apply_output(app_fsm);
+}
 
 int32_t dcf77_app_main(void* p) {
     UNUSED(p);
@@ -413,75 +178,63 @@ int32_t dcf77_app_main(void* p) {
     view_port_draw_callback_set(view_port, render_callback, app_fsm);
     view_port_input_callback_set(view_port, input_callback, event_queue);
 
-    // Open GUI and register view_port
     Gui* gui = furi_record_open(RECORD_GUI);
     gui_add_view_port(gui, view_port, GuiLayerFullscreen);
     NotificationApp* notification = furi_record_open(RECORD_NOTIFICATION);
     notification_message_block(notification, &sequence_display_backlight_enforce_on);
 
-
-    if (furi_hal_speaker_acquire(500))
-    {
+    if(furi_hal_speaker_acquire(500)) {
         ;
     }
-
 
     dolphin_deed(DolphinDeedPluginGameStart);
 
     AppEvent event;
     for(bool processing = true; processing;) {
-        FuriStatus event_status = furi_message_queue_get(event_queue, &event, 100);
+        const FuriStatus event_status = furi_message_queue_get(event_queue, &event, 100);
 
         if(event_status == FuriStatusOk) {
-            // kepress events
-            if(event.type == EventKeyPress) {
-                if(event.input.type == InputTypePress) {
-                    switch(event.input.key) {
-                    case InputKeyUp:
-                        app_fsm->last_key = KeyUp;
-                        dcf77_set_lf_freq(
-                            app_fsm,
-                            app_fsm->lf_freq == LF_FREQ_LOW ? LF_FREQ_HIGH : LF_FREQ_LOW);
-                        break;
-                    case InputKeyDown:
-                        app_fsm->last_key = KeyDown;
-                        break;
-                    case InputKeyRight:
-                        app_fsm->last_key = KeyRight;
-                        subghz_toggle(app_fsm);
-                        break;
-                    case InputKeyLeft:
-                        app_fsm->last_key = KeyLeft;
-                        break;
-                    case InputKeyOk:
-                        app_fsm->last_key = KeyOK;
-                        app_fsm->counter = -5;
-                        break;
-                    case InputKeyBack:
-                        processing = false;
-                        break;
-                    default:
-                        break;
-                    }
+            if(event.type == EventKeyPress && event.input.type == InputTypePress) {
+                switch(event.input.key) {
+                case InputKeyUp:
+                    app_fsm->last_key = KeyUp;
+                    dcf77_lf_set_frequency(
+                        app_fsm,
+                        app_fsm->lf_freq == LF_FREQ_LOW ? LF_FREQ_HIGH : LF_FREQ_LOW);
+                    break;
+                case InputKeyDown:
+                    app_fsm->last_key = KeyDown;
+                    break;
+                case InputKeyRight:
+                    app_fsm->last_key = KeyRight;
+                    dcf77_subghz_toggle(app_fsm);
+                    break;
+                case InputKeyLeft:
+                    app_fsm->last_key = KeyLeft;
+                    break;
+                case InputKeyOk:
+                    app_fsm->last_key = KeyOK;
+                    app_fsm->counter = -5;
+                    break;
+                case InputKeyBack:
+                    processing = false;
+                    break;
+                default:
+                    break;
                 }
-            // user events
             } else if(event.type == EventTimerTick) {
                 FURI_CRITICAL_ENTER();
                 on_timer_tick(app_fsm);
                 FURI_CRITICAL_EXIT();
             }
-        } else {
-            // event timeout
         }
 
         view_port_update(view_port);
     }
+
     furi_hal_speaker_release();
     notification_message_block(notification, &seq_c_minor);
-
-    // Wait for all notifications to be played and return backlight to normal state
     app_deinit(app_fsm);
-
     notification_message_block(notification, &sequence_display_backlight_enforce_auto);
 
     view_port_enabled_set(view_port, false);
