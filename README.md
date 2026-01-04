@@ -17,6 +17,7 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 * Debug mode: OOK (carrier) and FSK (FM) on 433.670 - tune in with a NFM receiver
 * Press Up to toggle LF output between 77.5kHz and 155kHz
 * Press Right to toggle the 433.670 debug output. Output is now A3 220Hz on NFM receivers, not just a carrier
+* Now with improved timing
 
 # todo
 

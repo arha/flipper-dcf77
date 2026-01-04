@@ -17,18 +17,23 @@
 #include <lib/subghz/devices/cc1101_configs.h>
 #include <notification/notification.h>
 #include <notification/notification_messages.h>
+#include <datetime/datetime.h>
 
 #include "dcf77_util.h"
 
 // the TAG is used for displaying a relevant prefix in logs. update it.
 #define TAG "__ARHA_FLIPPERAPP"
-#define TIMER_HZ 30
-#define TIME_ZERO 24
-#define TIME_ONE 27
+#define DCF77_SECONDS_PER_MINUTE 60
+#define DCF77_LPTIM_HZ 32768U
+#define DCF77_FULL_SECOND_TICKS DCF77_LPTIM_HZ
+#define DCF77_ZERO_HIGH_TICKS ((DCF77_LPTIM_HZ * 8U) / 10U)
+#define DCF77_ONE_HIGH_TICKS ((DCF77_LPTIM_HZ * 9U) / 10U)
+#define DCF77_MIN_TIMER_TICKS 8U
 #define LF_FREQ_LOW 77500
 #define LF_FREQ_HIGH (77500 * 2)
 #define SUBGHZ_FREQ 433670000
 #define SUBGHZ_FSK_HALF_PERIOD_US 2273
+#define SUBGHZ_FSK_IDLE_HALF_PERIOD_US 125
 #define OUTPUT_PIN &gpio_ext_pc3
 // #define TIME_ZERO 15
 // #define TIME_ONE 5
@@ -44,7 +49,6 @@ typedef enum {
 
 
 typedef enum {
-    EventTimerTick,
     EventKeyPress,
 } EventType;
 
@@ -57,7 +61,6 @@ typedef struct AppFSM {
     uint16_t len;
     KeyCode last_key;
 
-    FuriTimer* _timer;
     FuriMessageQueue* _event_queue;
 
     int counter;
@@ -65,21 +68,27 @@ typedef struct AppFSM {
 
     uint8_t bit_number; // 0 - 59
     uint8_t bit_value;  // 0 or 1 for actual bits, 2 for end-of-minute marker
-    uint8_t baseband_counter;   // 0 - 20, so we can generate 800 and 900 ms wide pulses (bit0 = 800ms = 16; bit1 = 900ms = 18; bit2 = 1000ms = 20)
-    bool output_state;
-    uint8_t last_second;
-    bool last_output;
-    uint8_t dcf77_message[8]; // these are 8 bytes which encode, LSB, every bit in the DCF77 message. see set_dcf_message()
+    volatile bool output_state;
+    volatile bool output_dirty;
+    uint8_t dcf77_message[8];
     uint8_t next_message[8];
+    uint16_t second_high_ticks[DCF77_SECONDS_PER_MINUTE];
+    uint16_t next_second_high_ticks[DCF77_SECONDS_PER_MINUTE];
+    DateTime current_minute_dt;
+    DateTime next_minute_dt;
+    volatile uint8_t scheduler_second;
+    volatile bool scheduler_low_phase;
+    volatile bool scheduler_ready;
+    volatile bool scheduler_synced;
 
-    bool buffer_swap_pending;
     bool debug_flag;
     bool lf_ready;
     bool subghz_ready;
-    bool subghz_enabled;
-    bool subghz_async_tx;
-    bool subghz_output;
-    bool subghz_tone_phase;
+    volatile bool subghz_enabled;
+    volatile bool subghz_async_tx;
+    volatile bool subghz_output;
+    volatile bool subghz_tone_phase;
+    volatile bool subghz_dirty;
 
     uint8_t tx_minute;
     uint8_t tx_hour;

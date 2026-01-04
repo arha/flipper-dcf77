@@ -115,14 +115,6 @@ static void input_callback(InputEvent* input_event, void* ctx) {
     furi_message_queue_put(event_queue, &event, FuriWaitForever);
 }
 
-static void timer_tick_callback(void* ctx) {
-    FuriMessageQueue* event_queue = ctx;
-    furi_assert(event_queue);
-
-    AppEvent event = {.type = EventTimerTick};
-    furi_message_queue_put(event_queue, &event, 0);
-}
-
 static void app_init(AppFSM* app_fsm, FuriMessageQueue* event_queue) {
     memset(app_fsm, 0, sizeof(*app_fsm));
 
@@ -133,38 +125,28 @@ static void app_init(AppFSM* app_fsm, FuriMessageQueue* event_queue) {
     dcf77_output_gpio_init();
 
     DateTime dt;
-    furi_hal_rtc_get_datetime(&dt);
-    dcf77_logic_refresh_message(app_fsm, &dt);
+    dcf77_wait_for_next_second(&dt);
+
+    DateTime current_minute = dt;
+    current_minute.second = 0;
+    dcf77_logic_prepare_minute(app_fsm, &current_minute, false);
+
+    DateTime next_minute = current_minute;
+    uint32_t next_timestamp = datetime_datetime_to_timestamp(&next_minute) + 60U;
+    datetime_timestamp_to_datetime(next_timestamp, &next_minute);
+    dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
+    dcf77_logic_sync_to_second(app_fsm, &dt);
 
     dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
-
-    app_fsm->_timer =
-        furi_timer_alloc(timer_tick_callback, FuriTimerTypePeriodic, app_fsm->_event_queue);
-    furi_timer_start(app_fsm->_timer, furi_kernel_get_tick_frequency() / TIMER_HZ);
+    dcf77_timing_start(app_fsm);
 }
 
 static void app_deinit(AppFSM* app_fsm) {
+    dcf77_timing_stop(app_fsm);
     dcf77_lf_deinit(app_fsm);
     dcf77_subghz_deinit(app_fsm);
     dcf77_output_gpio_deinit();
     dcf77_hw_indicator_set(false);
-    furi_timer_free(app_fsm->_timer);
-}
-
-static void on_timer_tick(AppFSM* app_fsm) {
-    DateTime dt;
-    bool output_changed = false;
-    furi_hal_rtc_get_datetime(&dt);
-
-    const bool output = dcf77_logic_tick(app_fsm, &dt, &output_changed);
-    if(!output_changed) {
-        return;
-    }
-
-    dcf77_hw_indicator_set(output);
-    dcf77_output_gpio_set(output);
-    dcf77_lf_apply_output(app_fsm);
-    dcf77_subghz_apply_output(app_fsm);
 }
 
 int32_t dcf77_app_main(void* p) {
@@ -191,16 +173,17 @@ int32_t dcf77_app_main(void* p) {
 
     AppEvent event;
     for(bool processing = true; processing;) {
-        const FuriStatus event_status = furi_message_queue_get(event_queue, &event, 100);
+        const FuriStatus event_status = furi_message_queue_get(event_queue, &event, 1);
 
         if(event_status == FuriStatusOk) {
             if(event.type == EventKeyPress && event.input.type == InputTypePress) {
                 switch(event.input.key) {
                 case InputKeyUp:
                     app_fsm->last_key = KeyUp;
-                    dcf77_lf_set_frequency(
-                        app_fsm,
-                        app_fsm->lf_freq == LF_FREQ_LOW ? LF_FREQ_HIGH : LF_FREQ_LOW);
+                    app_fsm->lf_freq = app_fsm->lf_freq == LF_FREQ_LOW ? LF_FREQ_HIGH : LF_FREQ_LOW;
+                    if(!app_fsm->subghz_enabled) {
+                        dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
+                    }
                     break;
                 case InputKeyDown:
                     app_fsm->last_key = KeyDown;
@@ -222,11 +205,20 @@ int32_t dcf77_app_main(void* p) {
                 default:
                     break;
                 }
-            } else if(event.type == EventTimerTick) {
-                FURI_CRITICAL_ENTER();
-                on_timer_tick(app_fsm);
-                FURI_CRITICAL_EXIT();
             }
+        }
+
+        if(app_fsm->output_dirty) {
+            const bool output = app_fsm->output_state;
+            app_fsm->output_dirty = false;
+            dcf77_hw_indicator_set(output);
+            if(app_fsm->subghz_enabled) {
+                app_fsm->subghz_dirty = true;
+            }
+        }
+
+        if(app_fsm->subghz_dirty) {
+            dcf77_subghz_apply_output(app_fsm);
         }
 
         view_port_update(view_port);
