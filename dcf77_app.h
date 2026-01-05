@@ -9,7 +9,12 @@
 #include <furi_hal.h>
 #include <furi_hal_speaker.h>
 #include <gui/gui.h>
+#include <gui/view.h>
+#include <gui/view_dispatcher.h>
+#include <gui/elements.h>
 #include <input/input.h>
+#include <applications/services/gui/modules/submenu.h>
+#include <applications/services/gui/modules/widget.h>
 
 #include <lib/subghz/receiver.h>
 #include <lib/subghz/transmitter.h>
@@ -29,6 +34,7 @@
 #define DCF77_ZERO_HIGH_TICKS ((DCF77_LPTIM_HZ * 8U) / 10U)
 #define DCF77_ONE_HIGH_TICKS ((DCF77_LPTIM_HZ * 9U) / 10U)
 #define DCF77_MIN_TIMER_TICKS 8U
+#define STARTUP_SCREEN_MS 1000U
 #define LF_FREQ_LOW 77500
 #define LF_FREQ_HIGH (77500 * 2)
 #define SUBGHZ_FREQ 433670000
@@ -57,11 +63,17 @@ typedef struct {
     InputEvent input;
 } AppEvent;
 
+typedef enum {
+    AppScreenStartup,
+    AppScreenMenu,
+    AppScreenTx,
+    AppScreenAbout,
+    AppScreenEgg,
+} AppScreen;
+
 typedef struct AppFSM {
     uint16_t len;
     KeyCode last_key;
-
-    FuriMessageQueue* _event_queue;
 
     int counter;
     uint32_t lf_freq;
@@ -89,6 +101,18 @@ typedef struct AppFSM {
     volatile bool subghz_output;
     volatile bool subghz_tone_phase;
     volatile bool subghz_dirty;
+    bool tx_active;
+    AppScreen screen;
+    uint32_t startup_deadline_tick;
+    uint32_t last_tx_refresh_tick;
+
+    ViewDispatcher* view_dispatcher;
+    Submenu* submenu;
+    Widget* startup_widget;
+    Widget* about_widget;
+    Widget* egg_widget;
+    View* tx_view;
+    NotificationApp* notification;
 
     uint8_t tx_minute;
     uint8_t tx_hour;

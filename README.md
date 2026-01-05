@@ -7,6 +7,8 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 
 # technical details
 
+###### Now with ~~more clicks needed to make it run~~ a real flipper UI!
+
 * It works on every clock I own _eventually_. DCF77 is slow, it sends a complete update once per minute. Sometimes it works on the first try, sometimes I have to wait more than 5 attempts
 * Implementation is using a software kernel timer (`furi_timer_start`) to generate the signal
 * Implementation is wonky and although FZ is FreeRTOS, this software timer is hit and miss. 30Hz seems to work best for generating the baseband signal. More interrupts seem to overlap and are significantly delayed. Less interrupts are sometimes (still!) delayed or missed, but less interrupts means the baseband signal gets distorted more during a miss
