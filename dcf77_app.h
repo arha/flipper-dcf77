@@ -75,6 +75,7 @@ typedef enum {
     AppScreenTx,
     AppScreenLfSettings,
     AppScreenSubGhzSettings,
+    AppScreenDebugSettings,
     AppScreenAbout,
     AppScreenEgg,
 } AppScreen;
@@ -124,12 +125,15 @@ typedef struct AppFSM {
     Submenu* submenu;
     VariableItemList* lf_settings;
     VariableItemList* subghz_settings;
+    VariableItemList* debug_settings;
     Widget* startup_widget;
     Widget* about_widget;
     Widget* egg_widget;
     View* tx_view;
     NotificationApp* notification;
     bool lf_transmit_enabled;
+    bool sound_enabled;
+    bool speaker_active;
     char lf_freq_text[16];
 
     uint8_t tx_minute;

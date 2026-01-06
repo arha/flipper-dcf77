@@ -58,6 +58,7 @@ enum {
     Dcf77ViewTx,
     Dcf77ViewLfSettings,
     Dcf77ViewSubGhzSettings,
+    Dcf77ViewDebugSettings,
     Dcf77ViewAbout,
     Dcf77ViewEgg,
 };
@@ -66,6 +67,7 @@ enum {
     Dcf77MenuItemStart,
     Dcf77MenuItemLfSettings,
     Dcf77MenuItemSubGhzSettings,
+    Dcf77MenuItemDebugSettings,
     Dcf77MenuItemAbout,
 };
 
@@ -78,16 +80,21 @@ enum {
     Dcf77SubGhzSettingSignal,
 };
 
+enum {
+    Dcf77DebugSettingSound,
+};
+
 typedef struct {
     uint32_t lf_freq;
     uint8_t lf_transmit_enabled;
     uint8_t subghz_signal_mode;
+    uint8_t sound_enabled;
 } Dcf77SavedSettings;
 
 #define DCF77_SETTINGS_DIR EXT_PATH("apps_data/dcf77")
 #define DCF77_SETTINGS_PATH EXT_PATH("apps_data/dcf77/settings.bin")
 #define DCF77_SETTINGS_MAGIC 0x44
-#define DCF77_SETTINGS_VERSION 2
+#define DCF77_SETTINGS_VERSION 3
 
 typedef struct {
     AppFSM* app_fsm;
@@ -98,6 +105,26 @@ static const char about_text[] =
     "https://github.com/arha\n";
 
 static const char egg_text[] = "wow you found an easter egg\n";
+
+static void app_sound_set(AppFSM* app_fsm, bool enabled) {
+    if(!enabled) {
+        if(app_fsm->speaker_active && furi_hal_speaker_is_mine()) {
+            furi_hal_speaker_stop();
+            furi_hal_speaker_release();
+        }
+        app_fsm->speaker_active = false;
+        return;
+    }
+
+    if(!furi_hal_speaker_is_mine()) {
+        if(!furi_hal_speaker_acquire(30)) {
+            return;
+        }
+    }
+
+    furi_hal_speaker_start(440.0f, 0.6f);
+    app_fsm->speaker_active = true;
+}
 
 static bool app_settings_save(const AppFSM* app_fsm) {
     Storage* storage = furi_record_open(RECORD_STORAGE);
@@ -114,6 +141,7 @@ static bool app_settings_save(const AppFSM* app_fsm) {
         .lf_freq = app_fsm->lf_freq,
         .lf_transmit_enabled = app_fsm->lf_transmit_enabled ? 1 : 0,
         .subghz_signal_mode = app_fsm->subghz_signal_mode,
+        .sound_enabled = app_fsm->sound_enabled ? 1 : 0,
     };
 
     return saved_struct_save(
@@ -129,6 +157,7 @@ static void app_settings_load(AppFSM* app_fsm) {
         .lf_freq = LF_FREQ_DEFAULT,
         .lf_transmit_enabled = 1,
         .subghz_signal_mode = SubGhzSignalModeDisabled,
+        .sound_enabled = 0,
     };
 
     if(saved_struct_load(
@@ -151,10 +180,12 @@ static void app_settings_load(AppFSM* app_fsm) {
             settings.subghz_signal_mode = SubGhzSignalModeDisabled;
         }
         app_fsm->subghz_signal_mode = settings.subghz_signal_mode;
+        app_fsm->sound_enabled = settings.sound_enabled != 0;
     } else {
         app_fsm->lf_freq = LF_FREQ_DEFAULT;
         app_fsm->lf_transmit_enabled = true;
         app_fsm->subghz_signal_mode = SubGhzSignalModeDisabled;
+        app_fsm->sound_enabled = false;
     }
 }
 
@@ -280,6 +311,11 @@ static void app_switch_to_subghz_settings(AppFSM* app_fsm) {
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
 }
 
+static void app_switch_to_debug_settings(AppFSM* app_fsm) {
+    app_fsm->screen = AppScreenDebugSettings;
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewDebugSettings);
+}
+
 static void app_start_tx(AppFSM* app_fsm) {
     if(app_fsm->tx_active) {
         return;
@@ -324,6 +360,7 @@ static void app_stop_tx(AppFSM* app_fsm) {
     dcf77_subghz_deinit(app_fsm);
     dcf77_output_gpio_set(false);
     dcf77_hw_indicator_set(false);
+    app_sound_set(app_fsm, false);
     app_fsm->output_state = false;
     app_fsm->output_dirty = false;
     app_fsm->tx_active = false;
@@ -377,6 +414,18 @@ static void subghz_signal_change_callback(VariableItem* item) {
     app_fsm->subghz_signal_mode = (SubGhzSignalMode)value_index;
     variable_item_set_current_value_text(item, labels[value_index]);
     app_apply_rf_settings(app_fsm);
+    app_settings_save(app_fsm);
+}
+
+static void debug_sound_change_callback(VariableItem* item) {
+    AppFSM* app_fsm = variable_item_get_context(item);
+    const uint8_t value_index = variable_item_get_current_value_index(item);
+
+    app_fsm->sound_enabled = value_index == 0;
+    variable_item_set_current_value_text(item, app_fsm->sound_enabled ? "Yes" : "No");
+    if(!app_fsm->sound_enabled) {
+        app_sound_set(app_fsm, false);
+    }
     app_settings_save(app_fsm);
 }
 
@@ -474,6 +523,9 @@ static void menu_callback(void* ctx, uint32_t index) {
     case Dcf77MenuItemSubGhzSettings:
         app_switch_to_subghz_settings(app_fsm);
         break;
+    case Dcf77MenuItemDebugSettings:
+        app_switch_to_debug_settings(app_fsm);
+        break;
     case Dcf77MenuItemAbout:
         app_switch_to_about(app_fsm);
         break;
@@ -500,6 +552,11 @@ static bool navigation_callback(void* ctx) {
         return true;
     }
 
+    if(app_fsm->screen == AppScreenDebugSettings) {
+        app_switch_to_menu(app_fsm);
+        return true;
+    }
+
     view_dispatcher_stop(app_fsm->view_dispatcher);
     return true;
 }
@@ -516,6 +573,8 @@ static void tick_callback(void* ctx) {
         const bool output = app_fsm->output_state;
         app_fsm->output_dirty = false;
         dcf77_hw_indicator_set(output);
+        app_sound_set(app_fsm, app_fsm->sound_enabled && output);
+        dcf77_subghz_sync_output(app_fsm);
     }
 
     if(app_fsm->screen == AppScreenTx && now - app_fsm->last_tx_refresh_tick >= 50U) {
@@ -566,6 +625,7 @@ static void app_init(AppFSM* app_fsm) {
     submenu_add_item(app_fsm->submenu, "LF", Dcf77MenuItemLfSettings, menu_callback, app_fsm);
     submenu_add_item(
         app_fsm->submenu, "SubGHz", Dcf77MenuItemSubGhzSettings, menu_callback, app_fsm);
+    submenu_add_item(app_fsm->submenu, "Debug", Dcf77MenuItemDebugSettings, menu_callback, app_fsm);
     submenu_add_item(app_fsm->submenu, "About", Dcf77MenuItemAbout, menu_callback, app_fsm);
     view_dispatcher_add_view(app_fsm->view_dispatcher, Dcf77ViewMenu, submenu_get_view(app_fsm->submenu));
 
@@ -607,6 +667,16 @@ static void app_init(AppFSM* app_fsm) {
         app_fsm->view_dispatcher,
         Dcf77ViewSubGhzSettings,
         variable_item_list_get_view(app_fsm->subghz_settings));
+
+    app_fsm->debug_settings = variable_item_list_alloc();
+    item = variable_item_list_add(
+        app_fsm->debug_settings, "Sound", 2, debug_sound_change_callback, app_fsm);
+    variable_item_set_current_value_index(item, app_fsm->sound_enabled ? 0 : 1);
+    variable_item_set_current_value_text(item, app_fsm->sound_enabled ? "Yes" : "No");
+    view_dispatcher_add_view(
+        app_fsm->view_dispatcher,
+        Dcf77ViewDebugSettings,
+        variable_item_list_get_view(app_fsm->debug_settings));
 
     app_fsm->tx_view = view_alloc();
     view_allocate_model(app_fsm->tx_view, ViewModelTypeLockFree, sizeof(Dcf77TxViewModel));
@@ -650,6 +720,7 @@ static void app_deinit(AppFSM* app_fsm) {
     app_stop_tx(app_fsm);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewEgg);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewAbout);
+    view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewDebugSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewTx);
@@ -658,6 +729,7 @@ static void app_deinit(AppFSM* app_fsm) {
     widget_free(app_fsm->egg_widget);
     widget_free(app_fsm->about_widget);
     view_free(app_fsm->tx_view);
+    variable_item_list_free(app_fsm->debug_settings);
     variable_item_list_free(app_fsm->subghz_settings);
     variable_item_list_free(app_fsm->lf_settings);
     submenu_free(app_fsm->submenu);
@@ -665,6 +737,7 @@ static void app_deinit(AppFSM* app_fsm) {
     view_dispatcher_free(app_fsm->view_dispatcher);
     dcf77_output_gpio_deinit();
     dcf77_hw_indicator_set(false);
+    app_sound_set(app_fsm, false);
 }
 
 int32_t dcf77_app_main(void* p) {

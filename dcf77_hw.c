@@ -40,12 +40,6 @@ static LevelDuration dcf77_subghz_fsk_yield(void* context) {
         return level_duration_reset();
     }
 
-    if(!app_fsm->output_state) {
-        app_fsm->subghz_tone_phase = false;
-        app_fsm->subghz_output = false;
-        return level_duration_make(false, SUBGHZ_FSK_IDLE_HALF_PERIOD_US);
-    }
-
     app_fsm->subghz_tone_phase = !app_fsm->subghz_tone_phase;
     app_fsm->subghz_output = app_fsm->subghz_tone_phase;
     return level_duration_make(app_fsm->subghz_tone_phase, SUBGHZ_FSK_HALF_PERIOD_US);
@@ -336,10 +330,33 @@ void dcf77_subghz_set_mode(AppFSM* app_fsm, SubGhzSignalMode mode) {
     dcf77_subghz_init(app_fsm, subghz_device_cc1101_preset_2fsk_dev2_38khz_async_regs);
     app_fsm->subghz_tone_phase = false;
     app_fsm->subghz_output = false;
-    app_fsm->subghz_async_tx = furi_hal_subghz_start_async_tx(dcf77_subghz_fsk_yield, app_fsm);
-    if(!app_fsm->subghz_async_tx) {
-        dcf77_subghz_deinit(app_fsm);
-        app_fsm->subghz_signal_mode = SubGhzSignalModeDisabled;
+    dcf77_subghz_sync_output(app_fsm);
+}
+
+void dcf77_subghz_sync_output(AppFSM* app_fsm) {
+    if(app_fsm->subghz_signal_mode != SubGhzSignalModeFsk || !app_fsm->subghz_ready) {
+        return;
+    }
+
+    if(app_fsm->output_state) {
+        if(!app_fsm->subghz_async_tx) {
+            app_fsm->subghz_tone_phase = false;
+            app_fsm->subghz_output = false;
+            app_fsm->subghz_async_tx =
+                furi_hal_subghz_start_async_tx(dcf77_subghz_fsk_yield, app_fsm);
+            if(!app_fsm->subghz_async_tx) {
+                dcf77_subghz_deinit(app_fsm);
+                app_fsm->subghz_signal_mode = SubGhzSignalModeDisabled;
+            }
+        }
+    } else {
+        if(app_fsm->subghz_async_tx) {
+            furi_hal_subghz_stop_async_tx();
+        }
+        app_fsm->subghz_async_tx = false;
+        app_fsm->subghz_tone_phase = false;
+        app_fsm->subghz_output = false;
+        furi_hal_subghz_idle();
     }
 }
 

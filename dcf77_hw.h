@@ -22,6 +22,7 @@ void dcf77_lf_apply_output(const AppFSM* app_fsm);
 void dcf77_lf_deinit(AppFSM* app_fsm);
 
 void dcf77_subghz_set_mode(AppFSM* app_fsm, SubGhzSignalMode mode);
+void dcf77_subghz_sync_output(AppFSM* app_fsm);
 void dcf77_subghz_deinit(AppFSM* app_fsm);
 
 #endif
