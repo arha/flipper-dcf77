@@ -8,7 +8,9 @@
 #include <applications/services/gui/modules/submenu.h>
 #include <applications/services/gui/modules/variable_item_list.h>
 #include <applications/services/gui/modules/widget.h>
+#include <applications/services/storage/storage.h>
 #include <dolphin/dolphin.h>
+#include <toolbox/saved_struct.h>
 #include <notification/notification.h>
 #include <notification/notification_messages.h>
 
@@ -71,6 +73,16 @@ enum {
 };
 
 typedef struct {
+    uint32_t lf_freq;
+    uint8_t lf_transmit_enabled;
+} Dcf77SavedSettings;
+
+#define DCF77_SETTINGS_DIR EXT_PATH("apps_data/dcf77")
+#define DCF77_SETTINGS_PATH EXT_PATH("apps_data/dcf77/settings.bin")
+#define DCF77_SETTINGS_MAGIC 0x44
+#define DCF77_SETTINGS_VERSION 1
+
+typedef struct {
     AppFSM* app_fsm;
 } Dcf77TxViewModel;
 
@@ -79,6 +91,58 @@ static const char about_text[] =
     "https://github.com/arha\n";
 
 static const char egg_text[] = "wow you found an easter egg\n";
+
+static bool app_settings_save(const AppFSM* app_fsm) {
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    const bool dir_ready =
+        storage_common_exists(storage, DCF77_SETTINGS_DIR) ||
+        (storage_simply_mkdir(storage, DCF77_SETTINGS_DIR) == true);
+    furi_record_close(RECORD_STORAGE);
+
+    if(!dir_ready) {
+        return false;
+    }
+
+    const Dcf77SavedSettings settings = {
+        .lf_freq = app_fsm->lf_freq,
+        .lf_transmit_enabled = app_fsm->lf_transmit_enabled ? 1 : 0,
+    };
+
+    return saved_struct_save(
+        DCF77_SETTINGS_PATH,
+        &settings,
+        sizeof(settings),
+        DCF77_SETTINGS_MAGIC,
+        DCF77_SETTINGS_VERSION);
+}
+
+static void app_settings_load(AppFSM* app_fsm) {
+    Dcf77SavedSettings settings = {
+        .lf_freq = LF_FREQ_DEFAULT,
+        .lf_transmit_enabled = 1,
+    };
+
+    if(saved_struct_load(
+           DCF77_SETTINGS_PATH,
+           &settings,
+           sizeof(settings),
+           DCF77_SETTINGS_MAGIC,
+           DCF77_SETTINGS_VERSION)) {
+        if(settings.lf_freq < LF_FREQ_MIN) {
+            settings.lf_freq = LF_FREQ_MIN;
+        } else if(settings.lf_freq > LF_FREQ_MAX) {
+            settings.lf_freq = LF_FREQ_MAX;
+        }
+
+        const uint32_t offset = settings.lf_freq - LF_FREQ_MIN;
+        settings.lf_freq = LF_FREQ_MIN + ((offset / LF_FREQ_STEP) * LF_FREQ_STEP);
+        app_fsm->lf_freq = settings.lf_freq;
+        app_fsm->lf_transmit_enabled = settings.lf_transmit_enabled != 0;
+    } else {
+        app_fsm->lf_freq = LF_FREQ_DEFAULT;
+        app_fsm->lf_transmit_enabled = true;
+    }
+}
 
 static void app_apply_lf_settings(AppFSM* app_fsm) {
     if(!app_fsm->tx_active || app_fsm->subghz_enabled) {
@@ -256,12 +320,6 @@ static uint32_t text_previous_callback(void* ctx) {
     return Dcf77ViewMenu;
 }
 
-static uint32_t lf_settings_previous_callback(void* ctx) {
-    AppFSM* app_fsm = ctx;
-    app_switch_to_menu(app_fsm);
-    return Dcf77ViewMenu;
-}
-
 static void lf_transmit_change_callback(VariableItem* item) {
     AppFSM* app_fsm = variable_item_get_context(item);
     const uint8_t value_index = variable_item_get_current_value_index(item);
@@ -269,6 +327,7 @@ static void lf_transmit_change_callback(VariableItem* item) {
     app_fsm->lf_transmit_enabled = value_index == 0;
     variable_item_set_current_value_text(item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
     app_apply_lf_settings(app_fsm);
+    app_settings_save(app_fsm);
 }
 
 static void lf_frequency_change_callback(VariableItem* item) {
@@ -279,6 +338,7 @@ static void lf_frequency_change_callback(VariableItem* item) {
     app_update_lf_freq_text(app_fsm);
     variable_item_set_current_value_text(item, app_fsm->lf_freq_text);
     app_apply_lf_settings(app_fsm);
+    app_settings_save(app_fsm);
 }
 
 static void about_button_callback(GuiButtonType result, InputType type, void* ctx) {
@@ -389,6 +449,11 @@ static bool navigation_callback(void* ctx) {
         return true;
     }
 
+    if(app_fsm->screen == AppScreenLfSettings) {
+        app_switch_to_menu(app_fsm);
+        return true;
+    }
+
     view_dispatcher_stop(app_fsm->view_dispatcher);
     return true;
 }
@@ -429,8 +494,7 @@ static void tick_callback(void* ctx) {
 static void app_init(AppFSM* app_fsm) {
     memset(app_fsm, 0, sizeof(*app_fsm));
 
-    app_fsm->lf_freq = LF_FREQ_DEFAULT;
-    app_fsm->lf_transmit_enabled = true;
+    app_settings_load(app_fsm);
     app_update_lf_freq_text(app_fsm);
     app_fsm->screen = AppScreenStartup;
     app_fsm->startup_deadline_tick =
@@ -472,14 +536,12 @@ static void app_init(AppFSM* app_fsm) {
     variable_item_set_current_value_text(item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
     item = variable_item_list_add(
         app_fsm->lf_settings,
-        "KHz",
+        "kHz",
         ((LF_FREQ_MAX - LF_FREQ_MIN) / LF_FREQ_STEP) + 1,
         lf_frequency_change_callback,
         app_fsm);
     variable_item_set_current_value_index(item, app_get_lf_freq_index(app_fsm->lf_freq));
     variable_item_set_current_value_text(item, app_fsm->lf_freq_text);
-    view_set_previous_callback(
-        variable_item_list_get_view(app_fsm->lf_settings), lf_settings_previous_callback);
     view_dispatcher_add_view(
         app_fsm->view_dispatcher,
         Dcf77ViewLfSettings,
