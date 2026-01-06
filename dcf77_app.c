@@ -176,7 +176,7 @@ static void app_settings_load(AppFSM* app_fsm) {
         settings.lf_freq = LF_FREQ_MIN + ((offset / LF_FREQ_STEP) * LF_FREQ_STEP);
         app_fsm->lf_freq = settings.lf_freq;
         app_fsm->lf_transmit_enabled = settings.lf_transmit_enabled != 0;
-        if(settings.subghz_signal_mode > SubGhzSignalModeFsk) {
+        if(settings.subghz_signal_mode > SubGhzSignalModeFskFull) {
             settings.subghz_signal_mode = SubGhzSignalModeDisabled;
         }
         app_fsm->subghz_signal_mode = settings.subghz_signal_mode;
@@ -407,7 +407,7 @@ static void lf_frequency_change_callback(VariableItem* item) {
 }
 
 static void subghz_signal_change_callback(VariableItem* item) {
-    static const char* const labels[] = {"disabled", "OOK", "FSK"};
+    static const char* const labels[] = {"disabled", "OOK", "FSK", "FSK 100%"};
     AppFSM* app_fsm = variable_item_get_context(item);
     const uint8_t value_index = variable_item_get_current_value_index(item);
 
@@ -649,7 +649,7 @@ static void app_init(AppFSM* app_fsm) {
 
     app_fsm->subghz_settings = variable_item_list_alloc();
     item = variable_item_list_add(
-        app_fsm->subghz_settings, "signal", 3, subghz_signal_change_callback, app_fsm);
+        app_fsm->subghz_settings, "signal", 4, subghz_signal_change_callback, app_fsm);
     variable_item_set_current_value_index(item, app_fsm->subghz_signal_mode);
     switch(app_fsm->subghz_signal_mode) {
     case SubGhzSignalModeOok:
@@ -657,6 +657,9 @@ static void app_init(AppFSM* app_fsm) {
         break;
     case SubGhzSignalModeFsk:
         variable_item_set_current_value_text(item, "FSK");
+        break;
+    case SubGhzSignalModeFskFull:
+        variable_item_set_current_value_text(item, "FSK 100%");
         break;
     case SubGhzSignalModeDisabled:
     default:

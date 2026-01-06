@@ -84,6 +84,7 @@ typedef enum {
     SubGhzSignalModeDisabled,
     SubGhzSignalModeOok,
     SubGhzSignalModeFsk,
+    SubGhzSignalModeFskFull,
 } SubGhzSignalMode;
 
 typedef struct AppFSM {
