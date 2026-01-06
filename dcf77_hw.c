@@ -127,22 +127,21 @@ static void dcf77_timing_isr(void* context) {
 
     if(app_fsm->scheduler_low_phase) {
         app_fsm->scheduler_low_phase = false;
-        dcf77_scheduler_advance_second(app_fsm);
         dcf77_apply_output_isr(app_fsm, true);
         dcf77_scheduler_start_ticks(dcf77_logic_get_current_high_ticks(app_fsm));
         return;
     }
 
+    dcf77_scheduler_advance_second(app_fsm);
     if(app_fsm->scheduler_second == 59) {
-        dcf77_scheduler_advance_second(app_fsm);
+        dcf77_apply_output_isr(app_fsm, true);
         dcf77_scheduler_start_ticks(dcf77_logic_get_current_high_ticks(app_fsm));
-        return;
+    } else {
+        const uint32_t high_ticks = dcf77_logic_get_current_high_ticks(app_fsm);
+        app_fsm->scheduler_low_phase = true;
+        dcf77_apply_output_isr(app_fsm, false);
+        dcf77_scheduler_start_ticks(DCF77_FULL_SECOND_TICKS - high_ticks);
     }
-
-    const uint32_t high_ticks = dcf77_logic_get_current_high_ticks(app_fsm);
-    app_fsm->scheduler_low_phase = true;
-    dcf77_apply_output_isr(app_fsm, false);
-    dcf77_scheduler_start_ticks(DCF77_FULL_SECOND_TICKS - high_ticks);
 }
 
 static void dcf77_scheduler_init(AppFSM* app_fsm) {
@@ -177,8 +176,13 @@ bool dcf77_wait_for_next_second(DateTime* dt) {
 
 void dcf77_timing_start(AppFSM* app_fsm) {
     dcf77_scheduler_init(app_fsm);
-    dcf77_apply_output_isr(app_fsm, true);
-    dcf77_scheduler_start_ticks(dcf77_logic_get_current_high_ticks(app_fsm));
+    dcf77_apply_output_isr(app_fsm, app_fsm->output_state);
+    if(app_fsm->scheduler_second == 59) {
+        dcf77_scheduler_start_ticks(dcf77_logic_get_current_high_ticks(app_fsm));
+    } else {
+        dcf77_scheduler_start_ticks(
+            DCF77_FULL_SECOND_TICKS - dcf77_logic_get_current_high_ticks(app_fsm));
+    }
 }
 
 void dcf77_timing_stop(AppFSM* app_fsm) {

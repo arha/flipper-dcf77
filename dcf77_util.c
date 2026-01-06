@@ -19,9 +19,9 @@ void set_dcf_message(uint8_t* dest, uint8_t minute, uint8_t hour,
     bcd_year =      ((year / 10) << 4)      | (year % 10);
 
     /*  parity bits */
-    bool p_minute = 1;
-    bool p_hour = 1;
-    bool p_date = 1;
+    bool p_minute = 0;
+    bool p_hour = 0;
+    bool p_date = 0;
 
     for (int i = 0; i < 8; i++)
     {

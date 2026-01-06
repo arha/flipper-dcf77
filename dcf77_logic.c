@@ -87,10 +87,10 @@ void dcf77_logic_activate_next_minute(AppFSM* app_fsm) {
 
 void dcf77_logic_sync_to_second(AppFSM* app_fsm, const DateTime* dt) {
     app_fsm->scheduler_second = dt->second;
-    app_fsm->scheduler_low_phase = false;
+    app_fsm->scheduler_low_phase = (dt->second != 59);
     app_fsm->bit_number = dt->second;
     app_fsm->bit_value = dcf77_get_message_bit(app_fsm->dcf77_message, app_fsm->bit_number);
-    app_fsm->output_state = true;
+    app_fsm->output_state = (dt->second == 59);
     app_fsm->output_dirty = true;
     app_fsm->scheduler_ready = true;
     app_fsm->scheduler_synced = true;
