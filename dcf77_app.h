@@ -32,10 +32,13 @@
 #define DCF77_SECONDS_PER_MINUTE 60
 #define DCF77_LPTIM_HZ 32768U
 #define DCF77_FULL_SECOND_TICKS DCF77_LPTIM_HZ
-#define DCF77_ZERO_HIGH_TICKS ((DCF77_LPTIM_HZ * 8U) / 10U)
-#define DCF77_ONE_HIGH_TICKS ((DCF77_LPTIM_HZ * 9U) / 10U)
+#define DCF77_ZERO_HIGH_TICKS ((DCF77_LPTIM_HZ * 9U) / 10U)
+#define DCF77_ONE_HIGH_TICKS ((DCF77_LPTIM_HZ * 8U) / 10U)
 #define DCF77_MIN_TIMER_TICKS 8U
 #define STARTUP_SCREEN_MS 1000U
+#define SYNC_ON_START 0
+#define DEBUG_SYNC_FRAME 0
+#define SUBGHZ_OOK_INVERT 0
 #define LF_FREQ_DEFAULT 77500U
 #define LF_FREQ_MIN 50000U
 #define LF_FREQ_MAX 200000U
@@ -71,9 +74,16 @@ typedef enum {
     AppScreenMenu,
     AppScreenTx,
     AppScreenLfSettings,
+    AppScreenSubGhzSettings,
     AppScreenAbout,
     AppScreenEgg,
 } AppScreen;
+
+typedef enum {
+    SubGhzSignalModeDisabled,
+    SubGhzSignalModeOok,
+    SubGhzSignalModeFsk,
+} SubGhzSignalMode;
 
 typedef struct AppFSM {
     uint16_t len;
@@ -96,15 +106,15 @@ typedef struct AppFSM {
     volatile bool scheduler_low_phase;
     volatile bool scheduler_ready;
     volatile bool scheduler_synced;
+    volatile bool startup_marker_wrap_pending;
 
     bool debug_flag;
     bool lf_ready;
     bool subghz_ready;
-    volatile bool subghz_enabled;
     volatile bool subghz_async_tx;
     volatile bool subghz_output;
     volatile bool subghz_tone_phase;
-    volatile bool subghz_dirty;
+    SubGhzSignalMode subghz_signal_mode;
     bool tx_active;
     AppScreen screen;
     uint32_t startup_deadline_tick;
@@ -113,6 +123,7 @@ typedef struct AppFSM {
     ViewDispatcher* view_dispatcher;
     Submenu* submenu;
     VariableItemList* lf_settings;
+    VariableItemList* subghz_settings;
     Widget* startup_widget;
     Widget* about_widget;
     Widget* egg_widget;
@@ -127,6 +138,7 @@ typedef struct AppFSM {
     uint8_t tx_month;
     uint8_t tx_year;
     uint8_t tx_dow;
+    uint8_t tx_start_second_offset;
 } AppFSM;
 
 extern const NotificationSequence seq_c_minor;

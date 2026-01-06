@@ -57,6 +57,7 @@ enum {
     Dcf77ViewMenu,
     Dcf77ViewTx,
     Dcf77ViewLfSettings,
+    Dcf77ViewSubGhzSettings,
     Dcf77ViewAbout,
     Dcf77ViewEgg,
 };
@@ -64,6 +65,7 @@ enum {
 enum {
     Dcf77MenuItemStart,
     Dcf77MenuItemLfSettings,
+    Dcf77MenuItemSubGhzSettings,
     Dcf77MenuItemAbout,
 };
 
@@ -72,15 +74,20 @@ enum {
     Dcf77LfSettingFrequency,
 };
 
+enum {
+    Dcf77SubGhzSettingSignal,
+};
+
 typedef struct {
     uint32_t lf_freq;
     uint8_t lf_transmit_enabled;
+    uint8_t subghz_signal_mode;
 } Dcf77SavedSettings;
 
 #define DCF77_SETTINGS_DIR EXT_PATH("apps_data/dcf77")
 #define DCF77_SETTINGS_PATH EXT_PATH("apps_data/dcf77/settings.bin")
 #define DCF77_SETTINGS_MAGIC 0x44
-#define DCF77_SETTINGS_VERSION 1
+#define DCF77_SETTINGS_VERSION 2
 
 typedef struct {
     AppFSM* app_fsm;
@@ -106,6 +113,7 @@ static bool app_settings_save(const AppFSM* app_fsm) {
     const Dcf77SavedSettings settings = {
         .lf_freq = app_fsm->lf_freq,
         .lf_transmit_enabled = app_fsm->lf_transmit_enabled ? 1 : 0,
+        .subghz_signal_mode = app_fsm->subghz_signal_mode,
     };
 
     return saved_struct_save(
@@ -120,6 +128,7 @@ static void app_settings_load(AppFSM* app_fsm) {
     Dcf77SavedSettings settings = {
         .lf_freq = LF_FREQ_DEFAULT,
         .lf_transmit_enabled = 1,
+        .subghz_signal_mode = SubGhzSignalModeDisabled,
     };
 
     if(saved_struct_load(
@@ -138,22 +147,31 @@ static void app_settings_load(AppFSM* app_fsm) {
         settings.lf_freq = LF_FREQ_MIN + ((offset / LF_FREQ_STEP) * LF_FREQ_STEP);
         app_fsm->lf_freq = settings.lf_freq;
         app_fsm->lf_transmit_enabled = settings.lf_transmit_enabled != 0;
+        if(settings.subghz_signal_mode > SubGhzSignalModeFsk) {
+            settings.subghz_signal_mode = SubGhzSignalModeDisabled;
+        }
+        app_fsm->subghz_signal_mode = settings.subghz_signal_mode;
     } else {
         app_fsm->lf_freq = LF_FREQ_DEFAULT;
         app_fsm->lf_transmit_enabled = true;
+        app_fsm->subghz_signal_mode = SubGhzSignalModeDisabled;
     }
 }
 
-static void app_apply_lf_settings(AppFSM* app_fsm) {
-    if(!app_fsm->tx_active || app_fsm->subghz_enabled) {
+static void app_apply_rf_settings(AppFSM* app_fsm) {
+    if(!app_fsm->tx_active) {
         return;
     }
 
-    if(app_fsm->lf_transmit_enabled) {
+    if(app_fsm->subghz_signal_mode == SubGhzSignalModeFsk) {
+        dcf77_lf_deinit(app_fsm);
+    } else if(app_fsm->lf_transmit_enabled) {
         dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
     } else {
         dcf77_lf_deinit(app_fsm);
     }
+
+    dcf77_subghz_set_mode(app_fsm, app_fsm->subghz_signal_mode);
 }
 
 static uint8_t app_get_lf_freq_index(uint32_t freq) {
@@ -257,6 +275,11 @@ static void app_switch_to_lf_settings(AppFSM* app_fsm) {
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
 }
 
+static void app_switch_to_subghz_settings(AppFSM* app_fsm) {
+    app_fsm->screen = AppScreenSubGhzSettings;
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
+}
+
 static void app_start_tx(AppFSM* app_fsm) {
     if(app_fsm->tx_active) {
         return;
@@ -264,6 +287,7 @@ static void app_start_tx(AppFSM* app_fsm) {
 
     DateTime dt;
     dcf77_wait_for_next_second(&dt);
+    app_fsm->tx_start_second_offset = dt.second;
 
     DateTime current_minute = dt;
     current_minute.second = 0;
@@ -273,13 +297,18 @@ static void app_start_tx(AppFSM* app_fsm) {
     uint32_t next_timestamp = datetime_datetime_to_timestamp(&next_minute) + 60U;
     datetime_timestamp_to_datetime(next_timestamp, &next_minute);
     dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
-    dcf77_logic_sync_to_second(app_fsm, &dt);
 
-    if(app_fsm->lf_transmit_enabled) {
-        dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
-    }
-    dcf77_timing_start(app_fsm);
     app_fsm->tx_active = true;
+#if DEBUG_SYNC_FRAME
+    dcf77_debug_sync_frame(app_fsm);
+#endif
+#if SYNC_ON_START
+    dcf77_logic_sync_start(app_fsm, 50, true);
+#else
+    dcf77_logic_sync_to_second(app_fsm, &dt);
+#endif
+    dcf77_timing_start(app_fsm);
+    app_apply_rf_settings(app_fsm);
     app_fsm->screen = AppScreenTx;
     app_fsm->last_tx_refresh_tick = furi_get_tick();
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewTx);
@@ -297,7 +326,6 @@ static void app_stop_tx(AppFSM* app_fsm) {
     dcf77_hw_indicator_set(false);
     app_fsm->output_state = false;
     app_fsm->output_dirty = false;
-    app_fsm->subghz_dirty = false;
     app_fsm->tx_active = false;
     app_switch_to_menu(app_fsm);
 }
@@ -326,7 +354,7 @@ static void lf_transmit_change_callback(VariableItem* item) {
 
     app_fsm->lf_transmit_enabled = value_index == 0;
     variable_item_set_current_value_text(item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
-    app_apply_lf_settings(app_fsm);
+    app_apply_rf_settings(app_fsm);
     app_settings_save(app_fsm);
 }
 
@@ -337,7 +365,18 @@ static void lf_frequency_change_callback(VariableItem* item) {
     app_fsm->lf_freq = LF_FREQ_MIN + ((uint32_t)value_index * LF_FREQ_STEP);
     app_update_lf_freq_text(app_fsm);
     variable_item_set_current_value_text(item, app_fsm->lf_freq_text);
-    app_apply_lf_settings(app_fsm);
+    app_apply_rf_settings(app_fsm);
+    app_settings_save(app_fsm);
+}
+
+static void subghz_signal_change_callback(VariableItem* item) {
+    static const char* const labels[] = {"disabled", "OOK", "FSK"};
+    AppFSM* app_fsm = variable_item_get_context(item);
+    const uint8_t value_index = variable_item_get_current_value_index(item);
+
+    app_fsm->subghz_signal_mode = (SubGhzSignalMode)value_index;
+    variable_item_set_current_value_text(item, labels[value_index]);
+    app_apply_rf_settings(app_fsm);
     app_settings_save(app_fsm);
 }
 
@@ -405,7 +444,6 @@ static bool tx_input_callback(InputEvent* event, void* ctx) {
         return true;
     case InputKeyRight:
         app_fsm->last_key = KeyRight;
-        dcf77_subghz_toggle(app_fsm);
         return true;
     case InputKeyLeft:
         app_fsm->last_key = KeyLeft;
@@ -433,6 +471,9 @@ static void menu_callback(void* ctx, uint32_t index) {
     case Dcf77MenuItemLfSettings:
         app_switch_to_lf_settings(app_fsm);
         break;
+    case Dcf77MenuItemSubGhzSettings:
+        app_switch_to_subghz_settings(app_fsm);
+        break;
     case Dcf77MenuItemAbout:
         app_switch_to_about(app_fsm);
         break;
@@ -454,6 +495,11 @@ static bool navigation_callback(void* ctx) {
         return true;
     }
 
+    if(app_fsm->screen == AppScreenSubGhzSettings) {
+        app_switch_to_menu(app_fsm);
+        return true;
+    }
+
     view_dispatcher_stop(app_fsm->view_dispatcher);
     return true;
 }
@@ -470,13 +516,6 @@ static void tick_callback(void* ctx) {
         const bool output = app_fsm->output_state;
         app_fsm->output_dirty = false;
         dcf77_hw_indicator_set(output);
-        if(app_fsm->subghz_enabled) {
-            app_fsm->subghz_dirty = true;
-        }
-    }
-
-    if(app_fsm->tx_active && app_fsm->subghz_dirty) {
-        dcf77_subghz_apply_output(app_fsm);
     }
 
     if(app_fsm->screen == AppScreenTx && now - app_fsm->last_tx_refresh_tick >= 50U) {
@@ -524,8 +563,9 @@ static void app_init(AppFSM* app_fsm) {
 
     app_fsm->submenu = submenu_alloc();
     submenu_add_item(app_fsm->submenu, "Start", Dcf77MenuItemStart, menu_callback, app_fsm);
+    submenu_add_item(app_fsm->submenu, "LF", Dcf77MenuItemLfSettings, menu_callback, app_fsm);
     submenu_add_item(
-        app_fsm->submenu, "LF Settings", Dcf77MenuItemLfSettings, menu_callback, app_fsm);
+        app_fsm->submenu, "SubGHz", Dcf77MenuItemSubGhzSettings, menu_callback, app_fsm);
     submenu_add_item(app_fsm->submenu, "About", Dcf77MenuItemAbout, menu_callback, app_fsm);
     view_dispatcher_add_view(app_fsm->view_dispatcher, Dcf77ViewMenu, submenu_get_view(app_fsm->submenu));
 
@@ -546,6 +586,27 @@ static void app_init(AppFSM* app_fsm) {
         app_fsm->view_dispatcher,
         Dcf77ViewLfSettings,
         variable_item_list_get_view(app_fsm->lf_settings));
+
+    app_fsm->subghz_settings = variable_item_list_alloc();
+    item = variable_item_list_add(
+        app_fsm->subghz_settings, "signal", 3, subghz_signal_change_callback, app_fsm);
+    variable_item_set_current_value_index(item, app_fsm->subghz_signal_mode);
+    switch(app_fsm->subghz_signal_mode) {
+    case SubGhzSignalModeOok:
+        variable_item_set_current_value_text(item, "OOK");
+        break;
+    case SubGhzSignalModeFsk:
+        variable_item_set_current_value_text(item, "FSK");
+        break;
+    case SubGhzSignalModeDisabled:
+    default:
+        variable_item_set_current_value_text(item, "disabled");
+        break;
+    }
+    view_dispatcher_add_view(
+        app_fsm->view_dispatcher,
+        Dcf77ViewSubGhzSettings,
+        variable_item_list_get_view(app_fsm->subghz_settings));
 
     app_fsm->tx_view = view_alloc();
     view_allocate_model(app_fsm->tx_view, ViewModelTypeLockFree, sizeof(Dcf77TxViewModel));
@@ -589,6 +650,7 @@ static void app_deinit(AppFSM* app_fsm) {
     app_stop_tx(app_fsm);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewEgg);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewAbout);
+    view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewTx);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewMenu);
@@ -596,6 +658,7 @@ static void app_deinit(AppFSM* app_fsm) {
     widget_free(app_fsm->egg_widget);
     widget_free(app_fsm->about_widget);
     view_free(app_fsm->tx_view);
+    variable_item_list_free(app_fsm->subghz_settings);
     variable_item_list_free(app_fsm->lf_settings);
     submenu_free(app_fsm->submenu);
     widget_free(app_fsm->startup_widget);
