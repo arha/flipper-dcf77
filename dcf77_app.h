@@ -14,6 +14,7 @@
 #include <gui/elements.h>
 #include <input/input.h>
 #include <applications/services/gui/modules/submenu.h>
+#include <applications/services/gui/modules/variable_item_list.h>
 #include <applications/services/gui/modules/widget.h>
 
 #include <lib/subghz/receiver.h>
@@ -35,8 +36,10 @@
 #define DCF77_ONE_HIGH_TICKS ((DCF77_LPTIM_HZ * 9U) / 10U)
 #define DCF77_MIN_TIMER_TICKS 8U
 #define STARTUP_SCREEN_MS 1000U
-#define LF_FREQ_LOW 77500
-#define LF_FREQ_HIGH (77500 * 2)
+#define LF_FREQ_DEFAULT 77500U
+#define LF_FREQ_MIN 50000U
+#define LF_FREQ_MAX 200000U
+#define LF_FREQ_STEP 2500U
 #define SUBGHZ_FREQ 433670000
 #define SUBGHZ_FSK_HALF_PERIOD_US 2273
 #define SUBGHZ_FSK_IDLE_HALF_PERIOD_US 125
@@ -67,6 +70,7 @@ typedef enum {
     AppScreenStartup,
     AppScreenMenu,
     AppScreenTx,
+    AppScreenLfSettings,
     AppScreenAbout,
     AppScreenEgg,
 } AppScreen;
@@ -108,11 +112,14 @@ typedef struct AppFSM {
 
     ViewDispatcher* view_dispatcher;
     Submenu* submenu;
+    VariableItemList* lf_settings;
     Widget* startup_widget;
     Widget* about_widget;
     Widget* egg_widget;
     View* tx_view;
     NotificationApp* notification;
+    bool lf_transmit_enabled;
+    char lf_freq_text[16];
 
     uint8_t tx_minute;
     uint8_t tx_hour;

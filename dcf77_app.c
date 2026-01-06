@@ -6,6 +6,7 @@
 #include <input/input.h>
 #include <stdlib.h>
 #include <applications/services/gui/modules/submenu.h>
+#include <applications/services/gui/modules/variable_item_list.h>
 #include <applications/services/gui/modules/widget.h>
 #include <dolphin/dolphin.h>
 #include <notification/notification.h>
@@ -53,13 +54,20 @@ enum {
     Dcf77ViewStartup,
     Dcf77ViewMenu,
     Dcf77ViewTx,
+    Dcf77ViewLfSettings,
     Dcf77ViewAbout,
     Dcf77ViewEgg,
 };
 
 enum {
     Dcf77MenuItemStart,
+    Dcf77MenuItemLfSettings,
     Dcf77MenuItemAbout,
+};
+
+enum {
+    Dcf77LfSettingTransmit,
+    Dcf77LfSettingFrequency,
 };
 
 typedef struct {
@@ -71,6 +79,34 @@ static const char about_text[] =
     "https://github.com/arha\n";
 
 static const char egg_text[] = "wow you found an easter egg\n";
+
+static void app_apply_lf_settings(AppFSM* app_fsm) {
+    if(!app_fsm->tx_active || app_fsm->subghz_enabled) {
+        return;
+    }
+
+    if(app_fsm->lf_transmit_enabled) {
+        dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
+    } else {
+        dcf77_lf_deinit(app_fsm);
+    }
+}
+
+static uint8_t app_get_lf_freq_index(uint32_t freq) {
+    if(freq <= LF_FREQ_MIN) {
+        return 0;
+    }
+
+    if(freq >= LF_FREQ_MAX) {
+        return (LF_FREQ_MAX - LF_FREQ_MIN) / LF_FREQ_STEP;
+    }
+
+    return (freq - LF_FREQ_MIN) / LF_FREQ_STEP;
+}
+
+static void app_update_lf_freq_text(AppFSM* app_fsm) {
+    snprintf(app_fsm->lf_freq_text, sizeof(app_fsm->lf_freq_text), "%lu", (unsigned long)app_fsm->lf_freq);
+}
 
 static void tx_render_callback(Canvas* const canvas, void* model) {
     Dcf77TxViewModel* tx_model = model;
@@ -152,6 +188,11 @@ static void app_switch_to_egg(AppFSM* app_fsm) {
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewEgg);
 }
 
+static void app_switch_to_lf_settings(AppFSM* app_fsm) {
+    app_fsm->screen = AppScreenLfSettings;
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
+}
+
 static void app_start_tx(AppFSM* app_fsm) {
     if(app_fsm->tx_active) {
         return;
@@ -170,7 +211,9 @@ static void app_start_tx(AppFSM* app_fsm) {
     dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
     dcf77_logic_sync_to_second(app_fsm, &dt);
 
-    dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
+    if(app_fsm->lf_transmit_enabled) {
+        dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
+    }
     dcf77_timing_start(app_fsm);
     app_fsm->tx_active = true;
     app_fsm->screen = AppScreenTx;
@@ -211,6 +254,31 @@ static uint32_t text_previous_callback(void* ctx) {
 
     app_switch_to_menu(app_fsm);
     return Dcf77ViewMenu;
+}
+
+static uint32_t lf_settings_previous_callback(void* ctx) {
+    AppFSM* app_fsm = ctx;
+    app_switch_to_menu(app_fsm);
+    return Dcf77ViewMenu;
+}
+
+static void lf_transmit_change_callback(VariableItem* item) {
+    AppFSM* app_fsm = variable_item_get_context(item);
+    const uint8_t value_index = variable_item_get_current_value_index(item);
+
+    app_fsm->lf_transmit_enabled = value_index == 0;
+    variable_item_set_current_value_text(item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
+    app_apply_lf_settings(app_fsm);
+}
+
+static void lf_frequency_change_callback(VariableItem* item) {
+    AppFSM* app_fsm = variable_item_get_context(item);
+    const uint8_t value_index = variable_item_get_current_value_index(item);
+
+    app_fsm->lf_freq = LF_FREQ_MIN + ((uint32_t)value_index * LF_FREQ_STEP);
+    app_update_lf_freq_text(app_fsm);
+    variable_item_set_current_value_text(item, app_fsm->lf_freq_text);
+    app_apply_lf_settings(app_fsm);
 }
 
 static void about_button_callback(GuiButtonType result, InputType type, void* ctx) {
@@ -272,13 +340,6 @@ static bool tx_input_callback(InputEvent* event, void* ctx) {
     }
 
     switch(event->key) {
-    case InputKeyUp:
-        app_fsm->last_key = KeyUp;
-        app_fsm->lf_freq = app_fsm->lf_freq == LF_FREQ_LOW ? LF_FREQ_HIGH : LF_FREQ_LOW;
-        if(!app_fsm->subghz_enabled) {
-            dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
-        }
-        return true;
     case InputKeyDown:
         app_fsm->last_key = KeyDown;
         return true;
@@ -308,6 +369,9 @@ static void menu_callback(void* ctx, uint32_t index) {
     switch(index) {
     case Dcf77MenuItemStart:
         app_start_tx(app_fsm);
+        break;
+    case Dcf77MenuItemLfSettings:
+        app_switch_to_lf_settings(app_fsm);
         break;
     case Dcf77MenuItemAbout:
         app_switch_to_about(app_fsm);
@@ -365,7 +429,9 @@ static void tick_callback(void* ctx) {
 static void app_init(AppFSM* app_fsm) {
     memset(app_fsm, 0, sizeof(*app_fsm));
 
-    app_fsm->lf_freq = LF_FREQ_LOW;
+    app_fsm->lf_freq = LF_FREQ_DEFAULT;
+    app_fsm->lf_transmit_enabled = true;
+    app_update_lf_freq_text(app_fsm);
     app_fsm->screen = AppScreenStartup;
     app_fsm->startup_deadline_tick =
         furi_get_tick() + ((STARTUP_SCREEN_MS * furi_kernel_get_tick_frequency()) / 1000U);
@@ -394,8 +460,30 @@ static void app_init(AppFSM* app_fsm) {
 
     app_fsm->submenu = submenu_alloc();
     submenu_add_item(app_fsm->submenu, "Start", Dcf77MenuItemStart, menu_callback, app_fsm);
+    submenu_add_item(
+        app_fsm->submenu, "LF Settings", Dcf77MenuItemLfSettings, menu_callback, app_fsm);
     submenu_add_item(app_fsm->submenu, "About", Dcf77MenuItemAbout, menu_callback, app_fsm);
     view_dispatcher_add_view(app_fsm->view_dispatcher, Dcf77ViewMenu, submenu_get_view(app_fsm->submenu));
+
+    app_fsm->lf_settings = variable_item_list_alloc();
+    VariableItem* item = variable_item_list_add(
+        app_fsm->lf_settings, "LF transmit", 2, lf_transmit_change_callback, app_fsm);
+    variable_item_set_current_value_index(item, app_fsm->lf_transmit_enabled ? 0 : 1);
+    variable_item_set_current_value_text(item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
+    item = variable_item_list_add(
+        app_fsm->lf_settings,
+        "KHz",
+        ((LF_FREQ_MAX - LF_FREQ_MIN) / LF_FREQ_STEP) + 1,
+        lf_frequency_change_callback,
+        app_fsm);
+    variable_item_set_current_value_index(item, app_get_lf_freq_index(app_fsm->lf_freq));
+    variable_item_set_current_value_text(item, app_fsm->lf_freq_text);
+    view_set_previous_callback(
+        variable_item_list_get_view(app_fsm->lf_settings), lf_settings_previous_callback);
+    view_dispatcher_add_view(
+        app_fsm->view_dispatcher,
+        Dcf77ViewLfSettings,
+        variable_item_list_get_view(app_fsm->lf_settings));
 
     app_fsm->tx_view = view_alloc();
     view_allocate_model(app_fsm->tx_view, ViewModelTypeLockFree, sizeof(Dcf77TxViewModel));
@@ -439,12 +527,14 @@ static void app_deinit(AppFSM* app_fsm) {
     app_stop_tx(app_fsm);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewEgg);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewAbout);
+    view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewTx);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewMenu);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewStartup);
     widget_free(app_fsm->egg_widget);
     widget_free(app_fsm->about_widget);
     view_free(app_fsm->tx_view);
+    variable_item_list_free(app_fsm->lf_settings);
     submenu_free(app_fsm->submenu);
     widget_free(app_fsm->startup_widget);
     view_dispatcher_free(app_fsm->view_dispatcher);

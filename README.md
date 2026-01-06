@@ -5,6 +5,10 @@ Sends the DCF77 time signal (badly) on the 125khz LFRFID antenna. This should al
 
 Building a portable antenna for the LF/VLF band is left as an exercise for the reader.
 
+# Features
+
+* LF frequency configurable 60-200khz
+
 # technical details
 
 ###### Now with ~~more clicks needed to make it run~~ a real flipper UI!

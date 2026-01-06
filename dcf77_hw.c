@@ -304,7 +304,11 @@ static void dcf77_subghz_fsk_toggle(AppFSM* app_fsm) {
         app_fsm->subghz_dirty = false;
         furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
         furi_hal_subghz_idle();
-        dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
+        if(app_fsm->lf_transmit_enabled) {
+            dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
+        } else {
+            dcf77_lf_deinit(app_fsm);
+        }
         return;
     }
 
@@ -337,7 +341,11 @@ void dcf77_subghz_apply_output(AppFSM* app_fsm) {
                 app_fsm->subghz_dirty = false;
                 furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
                 furi_hal_subghz_idle();
-                dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
+                if(app_fsm->lf_transmit_enabled) {
+                    dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
+                } else {
+                    dcf77_lf_deinit(app_fsm);
+                }
             }
         }
     } else if(app_fsm->subghz_async_tx) {
