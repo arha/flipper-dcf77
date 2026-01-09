@@ -31,12 +31,73 @@ static void dcf77_logic_compute_high_ticks(const uint8_t* message, uint16_t* tic
     }
 }
 
+static uint8_t dcf77_logic_days_in_month(uint16_t year, uint8_t month) {
+    static const uint8_t days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    uint8_t result = days[month - 1U];
+
+    if(month == 2U) {
+        const bool leap = ((year % 4U) == 0U) && (((year % 100U) != 0U) || ((year % 400U) == 0U));
+        if(leap) {
+            result = 29U;
+        }
+    }
+
+    return result;
+}
+
+static uint8_t dcf77_logic_last_sunday(uint16_t year, uint8_t month) {
+    DateTime dt = {
+        .year = year,
+        .month = month,
+        .day = dcf77_logic_days_in_month(year, month),
+        .hour = 0,
+        .minute = 0,
+        .second = 0,
+    };
+    datetime_timestamp_to_datetime(datetime_datetime_to_timestamp(&dt), &dt);
+    return dt.day - (dt.weekday % 7U);
+}
+
+static bool dcf77_logic_is_dst(const DateTime* dt) {
+    const uint16_t year = dt->year;
+
+    if(dt->month < 3U || dt->month > 10U) {
+        return false;
+    }
+
+    if(dt->month > 3U && dt->month < 10U) {
+        return true;
+    }
+
+    const uint8_t switch_day = dcf77_logic_last_sunday(year, dt->month);
+
+    if(dt->month == 3U) {
+        if(dt->day > switch_day) {
+            return true;
+        }
+        if(dt->day < switch_day) {
+            return false;
+        }
+        return dt->hour >= 3U;
+    }
+
+    if(dt->day < switch_day) {
+        return true;
+    }
+    if(dt->day > switch_day) {
+        return false;
+    }
+    return dt->hour < 4U;
+}
+
 static void dcf77_logic_prepare_buffers(
     AppFSM* app_fsm,
     const DateTime* dt,
     uint8_t* message_out,
     uint16_t* ticks_out) {
     UNUSED(app_fsm);
+    const bool is_dst = dcf77_logic_is_dst(dt);
+
     set_dcf_message(
         message_out,
         dt->minute,
@@ -45,7 +106,7 @@ static void dcf77_logic_prepare_buffers(
         dt->month,
         dt->year % 100,
         dt->weekday,
-        false,
+        is_dst,
         false,
         false,
         false,
@@ -63,6 +124,7 @@ void dcf77_logic_init(AppFSM* app_fsm) {
     app_fsm->scheduler_low_phase = false;
     app_fsm->scheduler_ready = false;
     app_fsm->scheduler_synced = false;
+    app_fsm->startup_marker_wrap_pending = false;
 }
 
 void dcf77_logic_prepare_minute(AppFSM* app_fsm, const DateTime* dt, bool as_next_minute) {
@@ -85,15 +147,20 @@ void dcf77_logic_activate_next_minute(AppFSM* app_fsm) {
     dcf77_logic_set_tx_fields(app_fsm, &app_fsm->current_minute_dt);
 }
 
-void dcf77_logic_sync_to_second(AppFSM* app_fsm, const DateTime* dt) {
-    app_fsm->scheduler_second = dt->second;
-    app_fsm->scheduler_low_phase = (dt->second != 59);
-    app_fsm->bit_number = dt->second;
+void dcf77_logic_sync_start(AppFSM* app_fsm, uint8_t start_second, bool startup_marker_wrap_pending) {
+    app_fsm->scheduler_second = start_second;
+    app_fsm->scheduler_low_phase = (start_second != 59);
+    app_fsm->bit_number = start_second;
     app_fsm->bit_value = dcf77_get_message_bit(app_fsm->dcf77_message, app_fsm->bit_number);
-    app_fsm->output_state = (dt->second == 59);
+    app_fsm->output_state = (start_second == 59);
     app_fsm->output_dirty = true;
     app_fsm->scheduler_ready = true;
     app_fsm->scheduler_synced = true;
+    app_fsm->startup_marker_wrap_pending = startup_marker_wrap_pending;
+}
+
+void dcf77_logic_sync_to_second(AppFSM* app_fsm, const DateTime* dt) {
+    dcf77_logic_sync_start(app_fsm, dt->second, false);
 }
 
 uint16_t dcf77_logic_get_current_high_ticks(const AppFSM* app_fsm) {
