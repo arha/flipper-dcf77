@@ -1,5 +1,6 @@
 #include "dcf77_gui.h"
 
+#include "dcf77_logic.h"
 #include "dcf77_scenes.h"
 
 static const char about_text[] =
@@ -29,6 +30,36 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
             "TX %s",
             app_fsm->lf_transmit_enabled ? "enabled" : "disabled");
         canvas_draw_str_aligned(canvas, 64, 58, AlignCenter, AlignBottom, buffer);
+        return;
+    }
+
+    if(app_fsm->current_signal == RadioClockSignalWwvb) {
+        canvas_draw_frame(canvas, 0, 0, 128, 64);
+        canvas_set_font(canvas, FontPrimary);
+        snprintf(
+            buffer,
+            sizeof(buffer),
+            "%02d:%02d doy %03u",
+            app_fsm->tx_hour,
+            app_fsm->tx_minute,
+            app_fsm->tx_day_of_year);
+        canvas_draw_str_aligned(canvas, 64, 12, AlignCenter, AlignBottom, buffer);
+        canvas_set_font(canvas, FontSecondary);
+        snprintf(
+            buffer,
+            sizeof(buffer),
+            "sec %02u pulse %s",
+            app_fsm->bit_number,
+            dcf77_logic_get_pulse_label((RadioClockPulse)app_fsm->bit_value));
+        canvas_draw_str_aligned(canvas, 64, 28, AlignCenter, AlignBottom, buffer);
+        snprintf(buffer, sizeof(buffer), "LF %lu Hz", (unsigned long)app_fsm->lf_freq);
+        canvas_draw_str_aligned(canvas, 64, 42, AlignCenter, AlignBottom, buffer);
+        snprintf(
+            buffer,
+            sizeof(buffer),
+            "SubGHz %s",
+            app_fsm->subghz_signal_mode == SubGhzSignalModeDisabled ? "off" : "on");
+        canvas_draw_str_aligned(canvas, 64, 56, AlignCenter, AlignBottom, buffer);
         return;
     }
 
@@ -122,10 +153,11 @@ void dcf77_gui_init(AppFSM* app_fsm) {
     app_fsm->lf_signal_item = variable_item_list_add(
         app_fsm->lf_settings,
         "Signal",
-        RadioClockSignalCount,
+        radio_clock_visible_signal_count(),
         NULL,
         app_fsm);
-    variable_item_set_current_value_index(app_fsm->lf_signal_item, app_fsm->current_signal);
+    variable_item_set_current_value_index(
+        app_fsm->lf_signal_item, radio_clock_visible_signal_index(app_fsm->current_signal));
     variable_item_set_current_value_text(
         app_fsm->lf_signal_item, radio_clock_signal_get_label(app_fsm->current_signal));
 
@@ -171,7 +203,7 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         variable_item_set_current_value_text(item, "FSK");
         break;
     case SubGhzSignalModeFskFull:
-        variable_item_set_current_value_text(item, "FSK 100%");
+        variable_item_set_current_value_text(item, "100%");
         break;
     case SubGhzSignalModeDisabled:
     default:

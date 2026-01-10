@@ -1,3 +1,5 @@
+#include <stddef.h>
+
 #include "radio_clock.h"
 
 static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount] = {
@@ -11,10 +13,10 @@ static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount]
         .default_freq = 77500U,
         .tx_supported = true,
     },
-    [RadioClockSignalWwbb] = {
-        .label = "WWBB",
+    [RadioClockSignalWwvb] = {
+        .label = "WWVB",
         .default_freq = 60000U,
-        .tx_supported = false,
+        .tx_supported = true,
     },
     [RadioClockSignalBpc] = {
         .label = "BPC",
@@ -38,6 +40,12 @@ static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount]
     },
 };
 
+static const RadioClockSignal radio_clock_visible_signals[] = {
+    RadioClockSignalTest,
+    RadioClockSignalDcf77,
+    RadioClockSignalWwvb,
+};
+
 const RadioClockSignalInfo* radio_clock_signal_get_info(RadioClockSignal signal) {
     if(signal >= RadioClockSignalCount) {
         signal = RadioClockSignalDcf77;
@@ -56,4 +64,28 @@ uint32_t radio_clock_signal_get_default_freq(RadioClockSignal signal) {
 
 bool radio_clock_signal_can_run(RadioClockSignal signal) {
     return radio_clock_signal_get_info(signal)->tx_supported;
+}
+
+size_t radio_clock_visible_signal_count(void) {
+    return sizeof(radio_clock_visible_signals) / sizeof(radio_clock_visible_signals[0]);
+}
+
+RadioClockSignal radio_clock_visible_signal_get(size_t index) {
+    if(index >= radio_clock_visible_signal_count()) {
+        index = 1;
+    }
+
+    return radio_clock_visible_signals[index];
+}
+
+size_t radio_clock_visible_signal_index(RadioClockSignal signal) {
+    const size_t count = sizeof(radio_clock_visible_signals) / sizeof(radio_clock_visible_signals[0]);
+
+    for(size_t i = 0; i < count; i++) {
+        if(radio_clock_visible_signals[i] == signal) {
+            return i;
+        }
+    }
+
+    return 1;
 }

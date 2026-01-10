@@ -24,7 +24,8 @@ enum {
 };
 
 static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
-    variable_item_set_current_value_index(app_fsm->lf_signal_item, app_fsm->current_signal);
+    variable_item_set_current_value_index(
+        app_fsm->lf_signal_item, radio_clock_visible_signal_index(app_fsm->current_signal));
     variable_item_set_current_value_text(
         app_fsm->lf_signal_item, radio_clock_signal_get_label(app_fsm->current_signal));
     variable_item_set_current_value_index(
@@ -44,15 +45,16 @@ static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
 }
 
 static void dcf77_lf_settings_select_next_signal(AppFSM* app_fsm, int8_t direction) {
-    int32_t value = (int32_t)app_fsm->current_signal + direction;
+    int32_t value = (int32_t)radio_clock_visible_signal_index(app_fsm->current_signal) + direction;
+    const int32_t count = (int32_t)radio_clock_visible_signal_count();
 
     if(value < 0) {
-        value = RadioClockSignalCount - 1;
-    } else if(value >= RadioClockSignalCount) {
+        value = count - 1;
+    } else if(value >= count) {
         value = 0;
     }
 
-    dcf77_app_set_signal(app_fsm, (RadioClockSignal)value);
+    dcf77_app_set_signal(app_fsm, radio_clock_visible_signal_get((size_t)value));
     dcf77_lf_settings_sync(app_fsm);
     dcf77_app_apply_rf_settings(app_fsm);
     dcf77_app_settings_save(app_fsm);
@@ -277,7 +279,7 @@ void dcf77_lf_settings_enter_callback(void* ctx, uint32_t index) {
 }
 
 void dcf77_subghz_signal_change_callback(VariableItem* item) {
-    static const char* const labels[] = {"disabled", "OOK", "FSK", "FSK 100%"};
+    static const char* const labels[] = {"disabled", "OOK", "FSK", "100%"};
     AppFSM* app_fsm = variable_item_get_context(item);
     const uint8_t value_index = variable_item_get_current_value_index(item);
 

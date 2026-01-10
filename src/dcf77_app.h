@@ -28,6 +28,7 @@
 
 #include "dcf77_util.h"
 #include "radio_clock.h"
+#include "radio_clock_pulse.h"
 
 // the TAG is used for displaying a relevant prefix in logs. update it.
 #define TAG "__ARHA_FLIPPERAPP"
@@ -123,6 +124,8 @@ typedef struct AppFSM {
     volatile bool output_dirty;
     uint8_t dcf77_message[8];
     uint8_t next_message[8];
+    RadioClockPulse pulse_frame[DCF77_SECONDS_PER_MINUTE];
+    RadioClockPulse next_pulse_frame[DCF77_SECONDS_PER_MINUTE];
     uint16_t second_high_ticks[DCF77_SECONDS_PER_MINUTE];
     uint16_t next_second_high_ticks[DCF77_SECONDS_PER_MINUTE];
     DateTime current_minute_dt;
@@ -172,6 +175,7 @@ typedef struct AppFSM {
     uint8_t tx_month;
     uint8_t tx_year;
     uint8_t tx_dow;
+    uint16_t tx_day_of_year;
     uint8_t tx_start_second_offset;
 } AppFSM;
 

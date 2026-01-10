@@ -157,7 +157,7 @@ static void dcf77_scheduler_advance_second(AppFSM* app_fsm) {
 }
 
 static void dcf77_scheduler_apply_current_second(AppFSM* app_fsm) {
-    if(app_fsm->scheduler_second == 59) {
+    if(app_fsm->current_signal == RadioClockSignalDcf77 && app_fsm->scheduler_second == 59) {
         dcf77_apply_output(app_fsm, true);
         dcf77_scheduler_disable_compare();
         return;

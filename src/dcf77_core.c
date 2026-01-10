@@ -190,6 +190,10 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
             settings.current_signal = RadioClockSignalDcf77;
         }
         app_fsm->current_signal = (RadioClockSignal)settings.current_signal;
+        if(radio_clock_visible_signal_index(app_fsm->current_signal) >=
+           radio_clock_visible_signal_count()) {
+            app_fsm->current_signal = RadioClockSignalDcf77;
+        }
         app_fsm->lf_transmit_enabled = settings.lf_transmit_enabled != 0;
         if(settings.subghz_signal_mode > SubGhzSignalModeFskFull) {
             settings.subghz_signal_mode = SubGhzSignalModeDisabled;
@@ -227,8 +231,7 @@ void dcf77_app_apply_rf_settings(AppFSM* app_fsm) {
         return;
     }
 
-    if(app_fsm->current_signal == RadioClockSignalDcf77 &&
-       app_fsm->subghz_signal_mode == SubGhzSignalModeFsk) {
+    if(app_fsm->subghz_signal_mode == SubGhzSignalModeFsk) {
         dcf77_lf_deinit(app_fsm);
     } else if(app_fsm->lf_transmit_enabled) {
         dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
