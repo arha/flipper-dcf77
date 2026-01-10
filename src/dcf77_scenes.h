@@ -25,6 +25,8 @@ void dcf77_tick_callback(void* ctx);
 
 void dcf77_lf_transmit_change_callback(VariableItem* item);
 void dcf77_lf_frequency_change_callback(VariableItem* item);
+bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx);
+void dcf77_lf_settings_enter_callback(void* ctx, uint32_t index);
 void dcf77_subghz_signal_change_callback(VariableItem* item);
 void dcf77_debug_sound_change_callback(VariableItem* item);
 

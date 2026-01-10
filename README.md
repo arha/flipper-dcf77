@@ -8,6 +8,7 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 # Features
 
 * LF frequency configurable 60-200khz
+* LF test mode signal
 
 # technical details
 

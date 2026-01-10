@@ -12,6 +12,26 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
     Dcf77TxViewModel* tx_model = model;
     AppFSM* app_fsm = tx_model->app_fsm;
     char buffer[64];
+
+    if(app_fsm->current_signal == RadioClockSignalTest) {
+        canvas_draw_frame(canvas, 0, 0, 128, 64);
+        canvas_set_font(canvas, FontPrimary);
+        canvas_draw_str_aligned(canvas, 64, 14, AlignCenter, AlignBottom, "Test");
+        canvas_set_font(canvas, FontSecondary);
+        snprintf(
+            buffer, sizeof(buffer), "Pulse 0.1s every 0.5s");
+        canvas_draw_str_aligned(canvas, 64, 30, AlignCenter, AlignBottom, buffer);
+        snprintf(buffer, sizeof(buffer), "LF %lu Hz", (unsigned long)app_fsm->lf_freq);
+        canvas_draw_str_aligned(canvas, 64, 44, AlignCenter, AlignBottom, buffer);
+        snprintf(
+            buffer,
+            sizeof(buffer),
+            "TX %s",
+            app_fsm->lf_transmit_enabled ? "enabled" : "disabled");
+        canvas_draw_str_aligned(canvas, 64, 58, AlignCenter, AlignBottom, buffer);
+        return;
+    }
+
     const uint8_t yoffset = 9;
     const uint8_t bit_number = app_fsm->bit_number;
     const uint8_t bit_value = app_fsm->bit_value;
@@ -89,7 +109,8 @@ void dcf77_gui_init(AppFSM* app_fsm) {
 
     app_fsm->submenu = submenu_alloc();
     submenu_add_item(app_fsm->submenu, "Start", Dcf77MenuItemStart, dcf77_menu_callback, app_fsm);
-    submenu_add_item(app_fsm->submenu, "LF", Dcf77MenuItemLfSettings, dcf77_menu_callback, app_fsm);
+    submenu_add_item(
+        app_fsm->submenu, "Signal & LF", Dcf77MenuItemLfSettings, dcf77_menu_callback, app_fsm);
     submenu_add_item(
         app_fsm->submenu, "SubGHz", Dcf77MenuItemSubGhzSettings, dcf77_menu_callback, app_fsm);
     submenu_add_item(
@@ -98,25 +119,48 @@ void dcf77_gui_init(AppFSM* app_fsm) {
     view_dispatcher_add_view(app_fsm->view_dispatcher, Dcf77ViewMenu, submenu_get_view(app_fsm->submenu));
 
     app_fsm->lf_settings = variable_item_list_alloc();
-    VariableItem* item = variable_item_list_add(
-        app_fsm->lf_settings, "LF transmit", 2, dcf77_lf_transmit_change_callback, app_fsm);
-    variable_item_set_current_value_index(item, app_fsm->lf_transmit_enabled ? 0 : 1);
-    variable_item_set_current_value_text(item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
-    item = variable_item_list_add(
+    app_fsm->lf_signal_item = variable_item_list_add(
+        app_fsm->lf_settings,
+        "Signal",
+        RadioClockSignalCount,
+        NULL,
+        app_fsm);
+    variable_item_set_current_value_index(app_fsm->lf_signal_item, app_fsm->current_signal);
+    variable_item_set_current_value_text(
+        app_fsm->lf_signal_item, radio_clock_signal_get_label(app_fsm->current_signal));
+
+    app_fsm->lf_tx_enabled_item = variable_item_list_add(
+        app_fsm->lf_settings, "LF TX enabled", 2, dcf77_lf_transmit_change_callback, app_fsm);
+    variable_item_set_current_value_index(app_fsm->lf_tx_enabled_item, app_fsm->lf_transmit_enabled ? 1 : 0);
+    variable_item_set_current_value_text(
+        app_fsm->lf_tx_enabled_item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
+
+    app_fsm->lf_freq_item = variable_item_list_add(
         app_fsm->lf_settings,
         "kHz",
         ((LF_FREQ_MAX - LF_FREQ_MIN) / LF_FREQ_STEP) + 1,
         dcf77_lf_frequency_change_callback,
         app_fsm);
-    variable_item_set_current_value_index(item, dcf77_app_get_lf_freq_index(app_fsm->lf_freq));
-    variable_item_set_current_value_text(item, app_fsm->lf_freq_text);
+    variable_item_set_current_value_index(
+        app_fsm->lf_freq_item, dcf77_app_get_lf_freq_index(app_fsm->lf_freq));
+    variable_item_set_current_value_text(app_fsm->lf_freq_item, app_fsm->lf_freq_text);
+
+    app_fsm->lf_default_freq_item = variable_item_list_add(
+        app_fsm->lf_settings, "Default frequency", 1, NULL, app_fsm);
+    variable_item_set_current_value_text(app_fsm->lf_default_freq_item, "");
+
+    variable_item_list_set_enter_callback(
+        app_fsm->lf_settings, dcf77_lf_settings_enter_callback, app_fsm);
+    view_set_context(variable_item_list_get_view(app_fsm->lf_settings), app_fsm);
+    view_set_input_callback(
+        variable_item_list_get_view(app_fsm->lf_settings), dcf77_lf_settings_input_callback);
     view_dispatcher_add_view(
         app_fsm->view_dispatcher,
         Dcf77ViewLfSettings,
         variable_item_list_get_view(app_fsm->lf_settings));
 
     app_fsm->subghz_settings = variable_item_list_alloc();
-    item = variable_item_list_add(
+    VariableItem* item = variable_item_list_add(
         app_fsm->subghz_settings, "signal", 4, dcf77_subghz_signal_change_callback, app_fsm);
     variable_item_set_current_value_index(item, app_fsm->subghz_signal_mode);
     switch(app_fsm->subghz_signal_mode) {

@@ -24,8 +24,10 @@
 #include <notification/notification.h>
 #include <notification/notification_messages.h>
 #include <datetime/datetime.h>
+#include <furi.h>
 
 #include "dcf77_util.h"
+#include "radio_clock.h"
 
 // the TAG is used for displaying a relevant prefix in logs. update it.
 #define TAG "__ARHA_FLIPPERAPP"
@@ -112,6 +114,8 @@ typedef struct AppFSM {
 
     int counter;
     uint32_t lf_freq;
+    RadioClockSignal current_signal;
+    uint32_t signal_freqs[RadioClockSignalCount];
 
     uint8_t bit_number; // 0 - 59
     uint8_t bit_value;  // 0 or 1 for actual bits, 2 for end-of-minute marker
@@ -128,6 +132,8 @@ typedef struct AppFSM {
     volatile bool scheduler_ready;
     volatile bool scheduler_synced;
     volatile bool startup_marker_wrap_pending;
+    FuriTimer* test_timer;
+    uint8_t test_phase;
 
     bool debug_flag;
     bool lf_ready;
@@ -150,6 +156,10 @@ typedef struct AppFSM {
     Widget* about_widget;
     Widget* egg_widget;
     View* tx_view;
+    VariableItem* lf_signal_item;
+    VariableItem* lf_tx_enabled_item;
+    VariableItem* lf_freq_item;
+    VariableItem* lf_default_freq_item;
     NotificationApp* notification;
     bool lf_transmit_enabled;
     bool sound_enabled;
@@ -173,5 +183,9 @@ bool dcf77_app_settings_save(const AppFSM* app_fsm);
 void dcf77_app_apply_rf_settings(AppFSM* app_fsm);
 uint8_t dcf77_app_get_lf_freq_index(uint32_t freq);
 void dcf77_app_update_lf_freq_text(AppFSM* app_fsm);
+void dcf77_app_set_signal(AppFSM* app_fsm, RadioClockSignal signal);
+void dcf77_app_set_signal_frequency(AppFSM* app_fsm, uint32_t freq);
+void dcf77_app_restore_default_frequency(AppFSM* app_fsm);
+bool dcf77_app_signal_can_run(const AppFSM* app_fsm);
 
 #endif

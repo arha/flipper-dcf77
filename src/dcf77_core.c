@@ -51,12 +51,26 @@ typedef struct {
     uint8_t lf_transmit_enabled;
     uint8_t subghz_signal_mode;
     uint8_t sound_enabled;
+} Dcf77SavedSettingsV3;
+
+typedef struct {
+    uint8_t current_signal;
+    uint8_t lf_transmit_enabled;
+    uint8_t subghz_signal_mode;
+    uint8_t sound_enabled;
+    uint32_t signal_freqs[RadioClockSignalCount];
 } Dcf77SavedSettings;
 
 #define DCF77_SETTINGS_DIR EXT_PATH("apps_data/dcf77")
 #define DCF77_SETTINGS_PATH EXT_PATH("apps_data/dcf77/settings.bin")
 #define DCF77_SETTINGS_MAGIC 0x44
-#define DCF77_SETTINGS_VERSION 3
+#define DCF77_SETTINGS_VERSION 4
+
+static void dcf77_app_init_signal_defaults(AppFSM* app_fsm) {
+    for(size_t i = 0; i < RadioClockSignalCount; i++) {
+        app_fsm->signal_freqs[i] = radio_clock_signal_get_default_freq((RadioClockSignal)i);
+    }
+}
 
 void dcf77_app_sound_set(AppFSM* app_fsm, bool enabled) {
     if(!enabled) {
@@ -90,10 +104,20 @@ bool dcf77_app_settings_save(const AppFSM* app_fsm) {
     }
 
     const Dcf77SavedSettings settings = {
-        .lf_freq = app_fsm->lf_freq,
+        .current_signal = app_fsm->current_signal,
         .lf_transmit_enabled = app_fsm->lf_transmit_enabled ? 1 : 0,
         .subghz_signal_mode = app_fsm->subghz_signal_mode,
         .sound_enabled = app_fsm->sound_enabled ? 1 : 0,
+        .signal_freqs =
+            {
+                app_fsm->signal_freqs[0],
+                app_fsm->signal_freqs[1],
+                app_fsm->signal_freqs[2],
+                app_fsm->signal_freqs[3],
+                app_fsm->signal_freqs[4],
+                app_fsm->signal_freqs[5],
+                app_fsm->signal_freqs[6],
+            },
     };
 
     return saved_struct_save(
@@ -104,13 +128,54 @@ bool dcf77_app_settings_save(const AppFSM* app_fsm) {
         DCF77_SETTINGS_VERSION);
 }
 
+void dcf77_app_set_signal_frequency(AppFSM* app_fsm, uint32_t freq) {
+    if(freq < LF_FREQ_MIN) {
+        freq = LF_FREQ_MIN;
+    } else if(freq > LF_FREQ_MAX) {
+        freq = LF_FREQ_MAX;
+    }
+
+    const uint32_t offset = freq - LF_FREQ_MIN;
+    freq = LF_FREQ_MIN + ((offset / LF_FREQ_STEP) * LF_FREQ_STEP);
+
+    app_fsm->lf_freq = freq;
+    app_fsm->signal_freqs[app_fsm->current_signal] = freq;
+    dcf77_app_update_lf_freq_text(app_fsm);
+}
+
+void dcf77_app_set_signal(AppFSM* app_fsm, RadioClockSignal signal) {
+    if(signal >= RadioClockSignalCount) {
+        signal = RadioClockSignalDcf77;
+    }
+
+    app_fsm->current_signal = signal;
+    dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[signal]);
+}
+
+void dcf77_app_restore_default_frequency(AppFSM* app_fsm) {
+    dcf77_app_set_signal_frequency(
+        app_fsm, radio_clock_signal_get_default_freq(app_fsm->current_signal));
+}
+
+bool dcf77_app_signal_can_run(const AppFSM* app_fsm) {
+    return radio_clock_signal_can_run(app_fsm->current_signal);
+}
+
 static void dcf77_app_settings_load(AppFSM* app_fsm) {
     Dcf77SavedSettings settings = {
+        .current_signal = RadioClockSignalDcf77,
+        .lf_transmit_enabled = 1,
+        .subghz_signal_mode = SubGhzSignalModeDisabled,
+        .sound_enabled = 0,
+    };
+    Dcf77SavedSettingsV3 legacy_settings = {
         .lf_freq = LF_FREQ_DEFAULT,
         .lf_transmit_enabled = 1,
         .subghz_signal_mode = SubGhzSignalModeDisabled,
         .sound_enabled = 0,
     };
+
+    dcf77_app_init_signal_defaults(app_fsm);
 
     if(saved_struct_load(
            DCF77_SETTINGS_PATH,
@@ -118,26 +183,42 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
            sizeof(settings),
            DCF77_SETTINGS_MAGIC,
            DCF77_SETTINGS_VERSION)) {
-        if(settings.lf_freq < LF_FREQ_MIN) {
-            settings.lf_freq = LF_FREQ_MIN;
-        } else if(settings.lf_freq > LF_FREQ_MAX) {
-            settings.lf_freq = LF_FREQ_MAX;
+        for(size_t i = 0; i < RadioClockSignalCount; i++) {
+            app_fsm->signal_freqs[i] = settings.signal_freqs[i];
         }
-
-        const uint32_t offset = settings.lf_freq - LF_FREQ_MIN;
-        settings.lf_freq = LF_FREQ_MIN + ((offset / LF_FREQ_STEP) * LF_FREQ_STEP);
-        app_fsm->lf_freq = settings.lf_freq;
+        if(settings.current_signal >= RadioClockSignalCount) {
+            settings.current_signal = RadioClockSignalDcf77;
+        }
+        app_fsm->current_signal = (RadioClockSignal)settings.current_signal;
         app_fsm->lf_transmit_enabled = settings.lf_transmit_enabled != 0;
         if(settings.subghz_signal_mode > SubGhzSignalModeFskFull) {
             settings.subghz_signal_mode = SubGhzSignalModeDisabled;
         }
         app_fsm->subghz_signal_mode = settings.subghz_signal_mode;
         app_fsm->sound_enabled = settings.sound_enabled != 0;
+        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[app_fsm->current_signal]);
+    } else if(saved_struct_load(
+                  DCF77_SETTINGS_PATH,
+                  &legacy_settings,
+                  sizeof(legacy_settings),
+                  DCF77_SETTINGS_MAGIC,
+                  3)) {
+        app_fsm->current_signal = RadioClockSignalDcf77;
+        app_fsm->signal_freqs[RadioClockSignalDcf77] = legacy_settings.lf_freq;
+        app_fsm->signal_freqs[RadioClockSignalTest] = legacy_settings.lf_freq;
+        app_fsm->lf_transmit_enabled = legacy_settings.lf_transmit_enabled != 0;
+        if(legacy_settings.subghz_signal_mode > SubGhzSignalModeFskFull) {
+            legacy_settings.subghz_signal_mode = SubGhzSignalModeDisabled;
+        }
+        app_fsm->subghz_signal_mode = legacy_settings.subghz_signal_mode;
+        app_fsm->sound_enabled = legacy_settings.sound_enabled != 0;
+        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[RadioClockSignalDcf77]);
     } else {
-        app_fsm->lf_freq = LF_FREQ_DEFAULT;
+        app_fsm->current_signal = RadioClockSignalDcf77;
         app_fsm->lf_transmit_enabled = true;
         app_fsm->subghz_signal_mode = SubGhzSignalModeDisabled;
         app_fsm->sound_enabled = false;
+        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[RadioClockSignalDcf77]);
     }
 }
 
@@ -146,7 +227,8 @@ void dcf77_app_apply_rf_settings(AppFSM* app_fsm) {
         return;
     }
 
-    if(app_fsm->subghz_signal_mode == SubGhzSignalModeFsk) {
+    if(app_fsm->current_signal == RadioClockSignalDcf77 &&
+       app_fsm->subghz_signal_mode == SubGhzSignalModeFsk) {
         dcf77_lf_deinit(app_fsm);
     } else if(app_fsm->lf_transmit_enabled) {
         dcf77_lf_set_frequency(app_fsm, app_fsm->lf_freq);
@@ -181,7 +263,6 @@ static void dcf77_app_init(AppFSM* app_fsm) {
     memset(app_fsm, 0, sizeof(*app_fsm));
 
     dcf77_app_settings_load(app_fsm);
-    dcf77_app_update_lf_freq_text(app_fsm);
     app_fsm->screen = AppScreenStartup;
     app_fsm->startup_deadline_tick =
         furi_get_tick() + ((STARTUP_SCREEN_MS * furi_kernel_get_tick_frequency()) / 1000U);

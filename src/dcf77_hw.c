@@ -7,6 +7,8 @@
 #include <stm32wbxx_ll_rcc.h>
 
 #define DCF77_SCHEDULER LPTIM2
+#define DCF77_TEST_PULSE_MS 100U
+#define DCF77_TEST_PERIOD_SLICES 5U
 
 static bool dcf77_subghz_ook_level(bool output) {
 #if SUBGHZ_OOK_INVERT
@@ -88,7 +90,7 @@ static void dcf77_scheduler_disable_compare(void) {
     LL_LPTIM_ClearFlag_CMPM(DCF77_SCHEDULER);
 }
 
-static void dcf77_apply_output_isr(AppFSM* app_fsm, bool output) {
+static void dcf77_apply_output(AppFSM* app_fsm, bool output) {
     if(app_fsm->output_state == output) {
         return;
     }
@@ -113,16 +115,16 @@ static void dcf77_apply_output_isr(AppFSM* app_fsm, bool output) {
 
 static void dcf77_apply_output_force(AppFSM* app_fsm, bool output) {
     app_fsm->output_state = !output;
-    dcf77_apply_output_isr(app_fsm, output);
+    dcf77_apply_output(app_fsm, output);
 }
 
 void dcf77_debug_sync_frame(AppFSM* app_fsm) {
     for(uint8_t i = 0; i < 5; i++) {
-        dcf77_apply_output_isr(app_fsm, true);
+        dcf77_apply_output(app_fsm, true);
         dcf77_hw_indicator_set(true);
         furi_delay_ms(100);
 
-        dcf77_apply_output_isr(app_fsm, false);
+        dcf77_apply_output(app_fsm, false);
         dcf77_hw_indicator_set(false);
         furi_delay_ms(100);
     }
@@ -156,14 +158,14 @@ static void dcf77_scheduler_advance_second(AppFSM* app_fsm) {
 
 static void dcf77_scheduler_apply_current_second(AppFSM* app_fsm) {
     if(app_fsm->scheduler_second == 59) {
-        dcf77_apply_output_isr(app_fsm, true);
+        dcf77_apply_output(app_fsm, true);
         dcf77_scheduler_disable_compare();
         return;
     }
 
     const uint32_t low_ticks =
         DCF77_FULL_SECOND_TICKS - dcf77_logic_get_current_high_ticks(app_fsm);
-    dcf77_apply_output_isr(app_fsm, false);
+    dcf77_apply_output(app_fsm, false);
     dcf77_scheduler_set_compare_ticks(low_ticks);
 }
 
@@ -184,13 +186,24 @@ static void dcf77_timing_isr(void* context) {
     }
 
     if(compare_match) {
-        dcf77_apply_output_isr(app_fsm, true);
+        dcf77_apply_output(app_fsm, true);
     }
 
     if(autoreload_match) {
         dcf77_scheduler_advance_second(app_fsm);
         dcf77_scheduler_apply_current_second(app_fsm);
     }
+}
+
+static void dcf77_test_timer_callback(void* context) {
+    AppFSM* app_fsm = context;
+
+    app_fsm->test_phase++;
+    if(app_fsm->test_phase >= DCF77_TEST_PERIOD_SLICES) {
+        app_fsm->test_phase = 0;
+    }
+
+    dcf77_apply_output(app_fsm, app_fsm->test_phase == 0);
 }
 
 static void dcf77_scheduler_init(AppFSM* app_fsm) {
@@ -224,6 +237,14 @@ bool dcf77_wait_for_next_second(DateTime* dt) {
 }
 
 void dcf77_timing_start(AppFSM* app_fsm) {
+    if(app_fsm->current_signal == RadioClockSignalTest) {
+        app_fsm->test_phase = 0;
+        dcf77_apply_output_force(app_fsm, true);
+        app_fsm->test_timer = furi_timer_alloc(dcf77_test_timer_callback, FuriTimerTypePeriodic, app_fsm);
+        furi_timer_start(app_fsm->test_timer, furi_ms_to_ticks(DCF77_TEST_PULSE_MS));
+        return;
+    }
+
     dcf77_scheduler_init(app_fsm);
     dcf77_scheduler_prepare();
     dcf77_apply_output_force(app_fsm, true);
@@ -232,6 +253,13 @@ void dcf77_timing_start(AppFSM* app_fsm) {
 }
 
 void dcf77_timing_stop(AppFSM* app_fsm) {
+    if(app_fsm->test_timer != NULL) {
+        furi_timer_stop(app_fsm->test_timer);
+        furi_timer_free(app_fsm->test_timer);
+        app_fsm->test_timer = NULL;
+        return;
+    }
+
     app_fsm->scheduler_ready = false;
     dcf77_scheduler_reset();
     furi_hal_interrupt_set_isr(FuriHalInterruptIdLpTim2, NULL, NULL);

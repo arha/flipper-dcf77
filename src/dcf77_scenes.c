@@ -9,8 +9,10 @@
 #include "dcf77_logic.h"
 
 enum {
+    Dcf77LfSettingSignal,
     Dcf77LfSettingTransmit,
     Dcf77LfSettingFrequency,
+    Dcf77LfSettingDefaultFrequency,
 };
 
 enum {
@@ -20,6 +22,41 @@ enum {
 enum {
     Dcf77DebugSettingSound,
 };
+
+static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
+    variable_item_set_current_value_index(app_fsm->lf_signal_item, app_fsm->current_signal);
+    variable_item_set_current_value_text(
+        app_fsm->lf_signal_item, radio_clock_signal_get_label(app_fsm->current_signal));
+    variable_item_set_current_value_index(
+        app_fsm->lf_tx_enabled_item, app_fsm->lf_transmit_enabled ? 1 : 0);
+    variable_item_set_current_value_text(
+        app_fsm->lf_tx_enabled_item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
+    variable_item_set_current_value_index(
+        app_fsm->lf_freq_item, dcf77_app_get_lf_freq_index(app_fsm->lf_freq));
+    variable_item_set_current_value_text(app_fsm->lf_freq_item, app_fsm->lf_freq_text);
+    with_view_model(
+        variable_item_list_get_view(app_fsm->lf_settings),
+        void * model,
+        {
+            UNUSED(model);
+        },
+        true);
+}
+
+static void dcf77_lf_settings_select_next_signal(AppFSM* app_fsm, int8_t direction) {
+    int32_t value = (int32_t)app_fsm->current_signal + direction;
+
+    if(value < 0) {
+        value = RadioClockSignalCount - 1;
+    } else if(value >= RadioClockSignalCount) {
+        value = 0;
+    }
+
+    dcf77_app_set_signal(app_fsm, (RadioClockSignal)value);
+    dcf77_lf_settings_sync(app_fsm);
+    dcf77_app_apply_rf_settings(app_fsm);
+    dcf77_app_settings_save(app_fsm);
+}
 
 void dcf77_app_switch_to_menu(AppFSM* app_fsm) {
     app_fsm->screen = AppScreenMenu;
@@ -39,6 +76,7 @@ void dcf77_app_switch_to_egg(AppFSM* app_fsm) {
 
 void dcf77_app_switch_to_lf_settings(AppFSM* app_fsm) {
     app_fsm->screen = AppScreenLfSettings;
+    dcf77_lf_settings_sync(app_fsm);
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
 }
 
@@ -54,6 +92,24 @@ void dcf77_app_switch_to_debug_settings(AppFSM* app_fsm) {
 
 void dcf77_app_start_tx(AppFSM* app_fsm) {
     if(app_fsm->tx_active) {
+        return;
+    }
+
+    if(!dcf77_app_signal_can_run(app_fsm)) {
+        notification_message_block(app_fsm->notification, &sequence_error);
+        dcf77_app_switch_to_lf_settings(app_fsm);
+        return;
+    }
+
+    if(app_fsm->current_signal == RadioClockSignalTest) {
+        app_fsm->bit_number = 0;
+        app_fsm->bit_value = 1;
+        app_fsm->tx_active = true;
+        dcf77_timing_start(app_fsm);
+        dcf77_app_apply_rf_settings(app_fsm);
+        app_fsm->screen = AppScreenTx;
+        app_fsm->last_tx_refresh_tick = furi_get_tick();
+        view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewTx);
         return;
     }
 
@@ -122,24 +178,102 @@ uint32_t dcf77_text_previous_callback(void* ctx) {
 }
 
 void dcf77_lf_transmit_change_callback(VariableItem* item) {
-    AppFSM* app_fsm = variable_item_get_context(item);
-    const uint8_t value_index = variable_item_get_current_value_index(item);
-
-    app_fsm->lf_transmit_enabled = value_index == Dcf77LfSettingTransmit;
-    variable_item_set_current_value_text(item, app_fsm->lf_transmit_enabled ? "Yes" : "No");
-    dcf77_app_apply_rf_settings(app_fsm);
-    dcf77_app_settings_save(app_fsm);
+    UNUSED(item);
 }
 
 void dcf77_lf_frequency_change_callback(VariableItem* item) {
-    AppFSM* app_fsm = variable_item_get_context(item);
-    const uint8_t value_index = variable_item_get_current_value_index(item);
+    UNUSED(item);
+}
 
-    app_fsm->lf_freq = LF_FREQ_MIN + ((uint32_t)value_index * LF_FREQ_STEP);
-    dcf77_app_update_lf_freq_text(app_fsm);
-    variable_item_set_current_value_text(item, app_fsm->lf_freq_text);
-    dcf77_app_apply_rf_settings(app_fsm);
-    dcf77_app_settings_save(app_fsm);
+bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
+    AppFSM* app_fsm = ctx;
+    uint8_t selected;
+
+    if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
+        return false;
+    }
+
+    selected = variable_item_list_get_selected_item_index(app_fsm->lf_settings);
+
+    switch(event->key) {
+    case InputKeyUp:
+        if(selected == 0) {
+            selected = Dcf77LfSettingDefaultFrequency;
+        } else {
+            selected--;
+        }
+        variable_item_list_set_selected_item(app_fsm->lf_settings, selected);
+        return true;
+    case InputKeyDown:
+        selected++;
+        if(selected > Dcf77LfSettingDefaultFrequency) {
+            selected = 0;
+        }
+        variable_item_list_set_selected_item(app_fsm->lf_settings, selected);
+        return true;
+    case InputKeyLeft:
+        if(selected == Dcf77LfSettingSignal) {
+            dcf77_lf_settings_select_next_signal(app_fsm, -1);
+            return true;
+        }
+        if(selected == Dcf77LfSettingTransmit) {
+            app_fsm->lf_transmit_enabled = false;
+            dcf77_lf_settings_sync(app_fsm);
+            dcf77_app_apply_rf_settings(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77LfSettingFrequency && app_fsm->lf_freq > LF_FREQ_MIN) {
+            dcf77_app_set_signal_frequency(app_fsm, app_fsm->lf_freq - LF_FREQ_STEP);
+            dcf77_lf_settings_sync(app_fsm);
+            dcf77_app_apply_rf_settings(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        return selected == Dcf77LfSettingDefaultFrequency;
+    case InputKeyRight:
+        if(selected == Dcf77LfSettingSignal) {
+            dcf77_lf_settings_select_next_signal(app_fsm, 1);
+            return true;
+        }
+        if(selected == Dcf77LfSettingTransmit) {
+            app_fsm->lf_transmit_enabled = true;
+            dcf77_lf_settings_sync(app_fsm);
+            dcf77_app_apply_rf_settings(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77LfSettingFrequency && app_fsm->lf_freq < LF_FREQ_MAX) {
+            dcf77_app_set_signal_frequency(app_fsm, app_fsm->lf_freq + LF_FREQ_STEP);
+            dcf77_lf_settings_sync(app_fsm);
+            dcf77_app_apply_rf_settings(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        return selected == Dcf77LfSettingDefaultFrequency;
+    case InputKeyOk:
+        if(selected == Dcf77LfSettingDefaultFrequency) {
+            dcf77_app_restore_default_frequency(app_fsm);
+            dcf77_lf_settings_sync(app_fsm);
+            dcf77_app_apply_rf_settings(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        return false;
+    default:
+        return false;
+    }
+}
+
+void dcf77_lf_settings_enter_callback(void* ctx, uint32_t index) {
+    AppFSM* app_fsm = ctx;
+
+    if(index == Dcf77LfSettingDefaultFrequency) {
+        dcf77_app_restore_default_frequency(app_fsm);
+        dcf77_lf_settings_sync(app_fsm);
+        dcf77_app_apply_rf_settings(app_fsm);
+        dcf77_app_settings_save(app_fsm);
+    }
 }
 
 void dcf77_subghz_signal_change_callback(VariableItem* item) {
@@ -281,6 +415,10 @@ bool dcf77_navigation_callback(void* ctx) {
     if(app_fsm->screen == AppScreenLfSettings ||
        app_fsm->screen == AppScreenSubGhzSettings ||
        app_fsm->screen == AppScreenDebugSettings) {
+        if(app_fsm->screen == AppScreenLfSettings && !dcf77_app_signal_can_run(app_fsm)) {
+            notification_message_block(app_fsm->notification, &sequence_error);
+            return true;
+        }
         dcf77_app_switch_to_menu(app_fsm);
         return true;
     }
