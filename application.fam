@@ -3,6 +3,10 @@ App(
     name="DCF77 Transmitter",
     apptype=FlipperAppType.EXTERNAL,
     entry_point="dcf77_app_main",
+    sources=[
+        "dcf77_app.c",
+        "src/*.c",
+    ],
     cdefines=["APP_DCF77"],
     requires=["gui"],
     stack_size=1 * 1024,

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../dcf77_util.h"
+#include "../src/dcf77_util.h"
 
 static bool get_bit(const uint8_t* frame, uint8_t bit_index) {
     return !!(frame[bit_index / 8] & (1u << (7 - (bit_index % 8))));

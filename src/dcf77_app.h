@@ -81,6 +81,25 @@ typedef enum {
 } AppScreen;
 
 typedef enum {
+    Dcf77ViewStartup,
+    Dcf77ViewMenu,
+    Dcf77ViewTx,
+    Dcf77ViewLfSettings,
+    Dcf77ViewSubGhzSettings,
+    Dcf77ViewDebugSettings,
+    Dcf77ViewAbout,
+    Dcf77ViewEgg,
+} Dcf77View;
+
+typedef enum {
+    Dcf77MenuItemStart,
+    Dcf77MenuItemLfSettings,
+    Dcf77MenuItemSubGhzSettings,
+    Dcf77MenuItemDebugSettings,
+    Dcf77MenuItemAbout,
+} Dcf77MenuItem;
+
+typedef enum {
     SubGhzSignalModeDisabled,
     SubGhzSignalModeOok,
     SubGhzSignalModeFsk,
@@ -148,5 +167,11 @@ typedef struct AppFSM {
 
 extern const NotificationSequence seq_c_minor;
 extern const char* const dcf77_bitnames[];
+
+void dcf77_app_sound_set(AppFSM* app_fsm, bool enabled);
+bool dcf77_app_settings_save(const AppFSM* app_fsm);
+void dcf77_app_apply_rf_settings(AppFSM* app_fsm);
+uint8_t dcf77_app_get_lf_freq_index(uint32_t freq);
+void dcf77_app_update_lf_freq_text(AppFSM* app_fsm);
 
 #endif
