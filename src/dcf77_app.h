@@ -13,6 +13,7 @@
 #include <gui/view_dispatcher.h>
 #include <gui/elements.h>
 #include <input/input.h>
+#include <applications/services/gui/modules/number_input.h>
 #include <applications/services/gui/modules/submenu.h>
 #include <applications/services/gui/modules/variable_item_list.h>
 #include <applications/services/gui/modules/widget.h>
@@ -29,6 +30,7 @@
 #include "dcf77_util.h"
 #include "radio_clock.h"
 #include "radio_clock_pulse.h"
+#include "subghz_settings.h"
 
 // the TAG is used for displaying a relevant prefix in logs. update it.
 #define TAG "__ARHA_FLIPPERAPP"
@@ -46,9 +48,6 @@
 #define LF_FREQ_MIN 50000U
 #define LF_FREQ_MAX 200000U
 #define LF_FREQ_STEP 2500U
-#define SUBGHZ_FREQ 433670000
-#define SUBGHZ_FSK_HALF_PERIOD_US 2273
-#define SUBGHZ_FSK_IDLE_HALF_PERIOD_US 125
 #define OUTPUT_PIN &gpio_ext_pc3
 // #define TIME_ZERO 15
 // #define TIME_ONE 5
@@ -78,6 +77,7 @@ typedef enum {
     AppScreenTx,
     AppScreenLfSettings,
     AppScreenSubGhzSettings,
+    AppScreenSubGhzFreqInput,
     AppScreenDebugSettings,
     AppScreenAbout,
     AppScreenEgg,
@@ -89,6 +89,7 @@ typedef enum {
     Dcf77ViewTx,
     Dcf77ViewLfSettings,
     Dcf77ViewSubGhzSettings,
+    Dcf77ViewSubGhzFreqInput,
     Dcf77ViewDebugSettings,
     Dcf77ViewAbout,
     Dcf77ViewEgg,
@@ -145,6 +146,13 @@ typedef struct AppFSM {
     volatile bool subghz_output;
     volatile bool subghz_tone_phase;
     SubGhzSignalMode subghz_signal_mode;
+    uint8_t subghz_fsk_tone_index;
+    uint8_t subghz_band_count;
+    uint8_t subghz_band_index;
+    uint8_t speaker_value_index;
+    uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
+    uint32_t subghz_band_ends[DCF77_SUBGHZ_MAX_BANDS];
+    uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
     bool tx_active;
     AppScreen screen;
     uint32_t startup_deadline_tick;
@@ -155,6 +163,7 @@ typedef struct AppFSM {
     VariableItemList* lf_settings;
     VariableItemList* subghz_settings;
     VariableItemList* debug_settings;
+    NumberInput* subghz_freq_input;
     Widget* startup_widget;
     Widget* about_widget;
     Widget* egg_widget;
@@ -163,11 +172,22 @@ typedef struct AppFSM {
     VariableItem* lf_tx_enabled_item;
     VariableItem* lf_freq_item;
     VariableItem* lf_default_freq_item;
+    VariableItem* subghz_tx_item;
+    VariableItem* subghz_tone_item;
+    VariableItem* subghz_band_item;
+    VariableItem* subghz_frequency_item;
+    VariableItem* subghz_manual_item;
+    VariableItem* debug_speaker_item;
     NotificationApp* notification;
     bool lf_transmit_enabled;
-    bool sound_enabled;
     bool speaker_active;
     char lf_freq_text[16];
+    char subghz_tone_text[16];
+    char subghz_band_text[16];
+    char subghz_frequency_text[16];
+    char subghz_frequency_step_text[24];
+    char subghz_manual_text[16];
+    char speaker_text[16];
 
     uint8_t tx_minute;
     uint8_t tx_hour;
@@ -191,5 +211,13 @@ void dcf77_app_set_signal(AppFSM* app_fsm, RadioClockSignal signal);
 void dcf77_app_set_signal_frequency(AppFSM* app_fsm, uint32_t freq);
 void dcf77_app_restore_default_frequency(AppFSM* app_fsm);
 bool dcf77_app_signal_can_run(const AppFSM* app_fsm);
+void dcf77_app_update_subghz_texts(AppFSM* app_fsm);
+void dcf77_app_set_subghz_signal_mode(AppFSM* app_fsm, SubGhzSignalMode mode);
+void dcf77_app_set_subghz_fsk_tone(AppFSM* app_fsm, uint8_t tone_index);
+void dcf77_app_set_subghz_band(AppFSM* app_fsm, uint8_t band_index);
+void dcf77_app_set_subghz_frequency(AppFSM* app_fsm, uint32_t freq_hz);
+void dcf77_app_step_subghz_frequency(AppFSM* app_fsm, int8_t direction);
+uint32_t dcf77_app_get_subghz_frequency(const AppFSM* app_fsm);
+void dcf77_app_set_speaker_value_index(AppFSM* app_fsm, uint8_t value_index);
 
 #endif

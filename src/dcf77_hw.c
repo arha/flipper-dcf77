@@ -36,7 +36,7 @@ static void dcf77_subghz_init(AppFSM* app_fsm, const uint8_t* preset) {
 
     furi_hal_subghz_reset();
     furi_hal_subghz_load_custom_preset(preset);
-    furi_hal_subghz_set_frequency_and_path(SUBGHZ_FREQ);
+    furi_hal_subghz_set_frequency_and_path(dcf77_app_get_subghz_frequency(app_fsm));
     furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeInput, GpioPullNo, GpioSpeedLow);
 
     app_fsm->subghz_ready = true;
@@ -52,7 +52,9 @@ static LevelDuration dcf77_subghz_fsk_yield(void* context) {
 
     app_fsm->subghz_tone_phase = !app_fsm->subghz_tone_phase;
     app_fsm->subghz_output = app_fsm->subghz_tone_phase;
-    return level_duration_make(app_fsm->subghz_tone_phase, SUBGHZ_FSK_HALF_PERIOD_US);
+    return level_duration_make(
+        app_fsm->subghz_tone_phase,
+        dcf77_subghz_note_half_period_us(app_fsm->subghz_fsk_tone_index));
 }
 
 static uint32_t dcf77_scheduler_sanitize_ticks(uint32_t ticks) {
@@ -337,20 +339,17 @@ void dcf77_lf_deinit(AppFSM* app_fsm) {
     app_fsm->lf_ready = false;
 }
 
-void dcf77_subghz_set_mode(AppFSM* app_fsm, SubGhzSignalMode mode) {
+void dcf77_subghz_apply_settings(AppFSM* app_fsm) {
     if(!app_fsm->tx_active) {
-        app_fsm->subghz_signal_mode = mode;
         return;
     }
 
     dcf77_subghz_deinit(app_fsm);
-    app_fsm->subghz_signal_mode = mode;
-
-    if(mode == SubGhzSignalModeDisabled) {
+    if(app_fsm->subghz_signal_mode == SubGhzSignalModeDisabled) {
         return;
     }
 
-    if(mode == SubGhzSignalModeOok) {
+    if(app_fsm->subghz_signal_mode == SubGhzSignalModeOok) {
         dcf77_subghz_init(app_fsm, subghz_device_cc1101_preset_ook_270khz_async_regs);
         furi_hal_gpio_init(&gpio_cc1101_g0, GpioModeOutputPushPull, GpioPullNo, GpioSpeedLow);
         if(!furi_hal_subghz_tx()) {

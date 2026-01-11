@@ -27,7 +27,10 @@ void dcf77_lf_transmit_change_callback(VariableItem* item);
 void dcf77_lf_frequency_change_callback(VariableItem* item);
 bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx);
 void dcf77_lf_settings_enter_callback(void* ctx, uint32_t index);
-void dcf77_subghz_signal_change_callback(VariableItem* item);
-void dcf77_debug_sound_change_callback(VariableItem* item);
+bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx);
+void dcf77_subghz_settings_enter_callback(void* ctx, uint32_t index);
+uint32_t dcf77_subghz_freq_input_previous_callback(void* ctx);
+void dcf77_subghz_freq_input_result_callback(void* ctx, int32_t number);
+void dcf77_debug_speaker_change_callback(VariableItem* item);
 
 #endif

@@ -16,12 +16,18 @@ enum {
 };
 
 enum {
-    Dcf77SubGhzSettingSignal,
+    Dcf77SubGhzSettingTransmit,
+    Dcf77SubGhzSettingFskTone,
+    Dcf77SubGhzSettingBand,
+    Dcf77SubGhzSettingFrequency,
+    Dcf77SubGhzSettingManualFrequency,
 };
 
 enum {
-    Dcf77DebugSettingSound,
+    Dcf77DebugSettingSpeaker,
 };
+
+static const char* const dcf77_subghz_mode_labels[] = {"No", "OOK", "FSK", "100%"};
 
 static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
     variable_item_set_current_value_index(
@@ -60,6 +66,49 @@ static void dcf77_lf_settings_select_next_signal(AppFSM* app_fsm, int8_t directi
     dcf77_app_settings_save(app_fsm);
 }
 
+static void dcf77_subghz_settings_sync(AppFSM* app_fsm) {
+    variable_item_set_current_value_index(
+        app_fsm->subghz_tx_item, app_fsm->subghz_signal_mode);
+    variable_item_set_current_value_text(
+        app_fsm->subghz_tx_item, dcf77_subghz_mode_labels[app_fsm->subghz_signal_mode]);
+    variable_item_set_current_value_index(
+        app_fsm->subghz_tone_item, app_fsm->subghz_fsk_tone_index);
+    variable_item_set_current_value_text(app_fsm->subghz_tone_item, app_fsm->subghz_tone_text);
+    variable_item_set_values_count(app_fsm->subghz_band_item, app_fsm->subghz_band_count);
+    variable_item_set_current_value_index(app_fsm->subghz_band_item, app_fsm->subghz_band_index);
+    variable_item_set_current_value_text(app_fsm->subghz_band_item, app_fsm->subghz_band_text);
+    variable_item_set_current_value_index(app_fsm->subghz_frequency_item, 0);
+    variable_item_set_current_value_text(
+        app_fsm->subghz_frequency_item, app_fsm->subghz_frequency_step_text);
+    variable_item_set_current_value_index(app_fsm->subghz_manual_item, 0);
+    variable_item_set_current_value_text(app_fsm->subghz_manual_item, app_fsm->subghz_manual_text);
+    with_view_model(
+        variable_item_list_get_view(app_fsm->subghz_settings),
+        void * model,
+        {
+            UNUSED(model);
+        },
+        true);
+}
+
+static void dcf77_debug_settings_sync(AppFSM* app_fsm) {
+    variable_item_set_current_value_index(app_fsm->debug_speaker_item, app_fsm->speaker_value_index);
+    variable_item_set_current_value_text(app_fsm->debug_speaker_item, app_fsm->speaker_text);
+    with_view_model(
+        variable_item_list_get_view(app_fsm->debug_settings),
+        void * model,
+        {
+            UNUSED(model);
+        },
+        true);
+}
+
+static void dcf77_subghz_settings_apply(AppFSM* app_fsm) {
+    dcf77_subghz_settings_sync(app_fsm);
+    dcf77_app_apply_rf_settings(app_fsm);
+    dcf77_app_settings_save(app_fsm);
+}
+
 void dcf77_app_switch_to_menu(AppFSM* app_fsm) {
     app_fsm->screen = AppScreenMenu;
     submenu_set_selected_item(app_fsm->submenu, Dcf77MenuItemStart);
@@ -84,12 +133,30 @@ void dcf77_app_switch_to_lf_settings(AppFSM* app_fsm) {
 
 void dcf77_app_switch_to_subghz_settings(AppFSM* app_fsm) {
     app_fsm->screen = AppScreenSubGhzSettings;
+    dcf77_subghz_settings_sync(app_fsm);
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
 }
 
 void dcf77_app_switch_to_debug_settings(AppFSM* app_fsm) {
     app_fsm->screen = AppScreenDebugSettings;
+    dcf77_debug_settings_sync(app_fsm);
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewDebugSettings);
+}
+
+static void dcf77_app_switch_to_subghz_freq_input(AppFSM* app_fsm) {
+    const int32_t current_khz = (int32_t)(dcf77_app_get_subghz_frequency(app_fsm) / 1000U);
+    const int32_t min_khz = (int32_t)(app_fsm->subghz_band_starts[app_fsm->subghz_band_index] / 1000U);
+    const int32_t max_khz = (int32_t)(app_fsm->subghz_band_ends[app_fsm->subghz_band_index] / 1000U);
+
+    number_input_set_result_callback(
+        app_fsm->subghz_freq_input,
+        dcf77_subghz_freq_input_result_callback,
+        app_fsm,
+        current_khz,
+        min_khz,
+        max_khz);
+    app_fsm->screen = AppScreenSubGhzFreqInput;
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzFreqInput);
 }
 
 void dcf77_app_start_tx(AppFSM* app_fsm) {
@@ -278,24 +345,122 @@ void dcf77_lf_settings_enter_callback(void* ctx, uint32_t index) {
     }
 }
 
-void dcf77_subghz_signal_change_callback(VariableItem* item) {
-    static const char* const labels[] = {"disabled", "OOK", "FSK", "100%"};
-    AppFSM* app_fsm = variable_item_get_context(item);
-    const uint8_t value_index = variable_item_get_current_value_index(item);
+bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx) {
+    AppFSM* app_fsm = ctx;
+    uint8_t selected;
 
-    app_fsm->subghz_signal_mode = (SubGhzSignalMode)value_index;
-    variable_item_set_current_value_text(item, labels[value_index]);
-    dcf77_app_apply_rf_settings(app_fsm);
-    dcf77_app_settings_save(app_fsm);
+    if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
+        return false;
+    }
+
+    selected = variable_item_list_get_selected_item_index(app_fsm->subghz_settings);
+
+    switch(event->key) {
+    case InputKeyUp:
+        if(selected == 0) {
+            selected = Dcf77SubGhzSettingManualFrequency;
+        } else {
+            selected--;
+        }
+        variable_item_list_set_selected_item(app_fsm->subghz_settings, selected);
+        return true;
+    case InputKeyDown:
+        selected++;
+        if(selected > Dcf77SubGhzSettingManualFrequency) {
+            selected = 0;
+        }
+        variable_item_list_set_selected_item(app_fsm->subghz_settings, selected);
+        return true;
+    case InputKeyLeft:
+        if(selected == Dcf77SubGhzSettingTransmit && app_fsm->subghz_signal_mode > SubGhzSignalModeDisabled) {
+            dcf77_app_set_subghz_signal_mode(
+                app_fsm, (SubGhzSignalMode)(app_fsm->subghz_signal_mode - 1));
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77SubGhzSettingFskTone && app_fsm->subghz_fsk_tone_index > 0) {
+            dcf77_app_set_subghz_fsk_tone(app_fsm, app_fsm->subghz_fsk_tone_index - 1U);
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77SubGhzSettingBand && app_fsm->subghz_band_index > 0) {
+            dcf77_app_set_subghz_band(app_fsm, app_fsm->subghz_band_index - 1U);
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77SubGhzSettingFrequency) {
+            dcf77_app_step_subghz_frequency(app_fsm, -1);
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        return selected == Dcf77SubGhzSettingManualFrequency;
+    case InputKeyRight:
+        if(selected == Dcf77SubGhzSettingTransmit &&
+           app_fsm->subghz_signal_mode < SubGhzSignalModeFskFull) {
+            dcf77_app_set_subghz_signal_mode(
+                app_fsm, (SubGhzSignalMode)(app_fsm->subghz_signal_mode + 1));
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77SubGhzSettingFskTone &&
+           app_fsm->subghz_fsk_tone_index + 1U < dcf77_subghz_note_count()) {
+            dcf77_app_set_subghz_fsk_tone(app_fsm, app_fsm->subghz_fsk_tone_index + 1U);
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77SubGhzSettingBand &&
+           app_fsm->subghz_band_index + 1U < app_fsm->subghz_band_count) {
+            dcf77_app_set_subghz_band(app_fsm, app_fsm->subghz_band_index + 1U);
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77SubGhzSettingFrequency) {
+            dcf77_app_step_subghz_frequency(app_fsm, 1);
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        return selected == Dcf77SubGhzSettingManualFrequency;
+    case InputKeyOk:
+        if(selected == Dcf77SubGhzSettingManualFrequency) {
+            dcf77_app_switch_to_subghz_freq_input(app_fsm);
+            return true;
+        }
+        return false;
+    default:
+        return false;
+    }
 }
 
-void dcf77_debug_sound_change_callback(VariableItem* item) {
+void dcf77_subghz_settings_enter_callback(void* ctx, uint32_t index) {
+    AppFSM* app_fsm = ctx;
+
+    if(index == Dcf77SubGhzSettingManualFrequency) {
+        dcf77_app_switch_to_subghz_freq_input(app_fsm);
+    }
+}
+
+uint32_t dcf77_subghz_freq_input_previous_callback(void* ctx) {
+    AppFSM* app_fsm = ctx;
+
+    dcf77_app_switch_to_subghz_settings(app_fsm);
+    return Dcf77ViewSubGhzSettings;
+}
+
+void dcf77_subghz_freq_input_result_callback(void* ctx, int32_t number) {
+    AppFSM* app_fsm = ctx;
+    dcf77_app_set_subghz_frequency(app_fsm, (uint32_t)number * 1000U);
+    dcf77_subghz_settings_apply(app_fsm);
+
+    dcf77_app_switch_to_subghz_settings(app_fsm);
+}
+
+void dcf77_debug_speaker_change_callback(VariableItem* item) {
     AppFSM* app_fsm = variable_item_get_context(item);
     const uint8_t value_index = variable_item_get_current_value_index(item);
 
-    app_fsm->sound_enabled = value_index == 0;
-    variable_item_set_current_value_text(item, app_fsm->sound_enabled ? "Yes" : "No");
-    if(!app_fsm->sound_enabled) {
+    dcf77_app_set_speaker_value_index(app_fsm, value_index);
+    variable_item_set_current_value_text(item, app_fsm->speaker_text);
+    if(app_fsm->speaker_value_index == 0) {
         dcf77_app_sound_set(app_fsm, false);
     }
     dcf77_app_settings_save(app_fsm);
@@ -425,6 +590,11 @@ bool dcf77_navigation_callback(void* ctx) {
         return true;
     }
 
+    if(app_fsm->screen == AppScreenSubGhzFreqInput) {
+        dcf77_app_switch_to_subghz_settings(app_fsm);
+        return true;
+    }
+
     view_dispatcher_stop(app_fsm->view_dispatcher);
     return true;
 }
@@ -441,7 +611,7 @@ void dcf77_tick_callback(void* ctx) {
         const bool output = app_fsm->output_state;
         app_fsm->output_dirty = false;
         dcf77_hw_indicator_set(output);
-        dcf77_app_sound_set(app_fsm, app_fsm->sound_enabled && output);
+        dcf77_app_sound_set(app_fsm, app_fsm->speaker_value_index != 0 && output);
         dcf77_subghz_sync_output(app_fsm);
     }
 

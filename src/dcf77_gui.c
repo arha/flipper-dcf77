@@ -198,34 +198,44 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         variable_item_list_get_view(app_fsm->lf_settings));
 
     app_fsm->subghz_settings = variable_item_list_alloc();
-    VariableItem* item = variable_item_list_add(
-        app_fsm->subghz_settings, "signal", 4, dcf77_subghz_signal_change_callback, app_fsm);
-    variable_item_set_current_value_index(item, app_fsm->subghz_signal_mode);
-    switch(app_fsm->subghz_signal_mode) {
-    case SubGhzSignalModeOok:
-        variable_item_set_current_value_text(item, "OOK");
-        break;
-    case SubGhzSignalModeFsk:
-        variable_item_set_current_value_text(item, "FSK");
-        break;
-    case SubGhzSignalModeFskFull:
-        variable_item_set_current_value_text(item, "100%");
-        break;
-    case SubGhzSignalModeDisabled:
-    default:
-        variable_item_set_current_value_text(item, "disabled");
-        break;
-    }
+    app_fsm->subghz_tx_item = variable_item_list_add(
+        app_fsm->subghz_settings, "SubGHz TX", 4, NULL, app_fsm);
+    app_fsm->subghz_tone_item = variable_item_list_add(
+        app_fsm->subghz_settings,
+        "FSK tone",
+        (uint8_t)dcf77_subghz_note_count(),
+        NULL,
+        app_fsm);
+    app_fsm->subghz_band_item = variable_item_list_add(
+        app_fsm->subghz_settings, "Band", app_fsm->subghz_band_count, NULL, app_fsm);
+    app_fsm->subghz_frequency_item = variable_item_list_add(
+        app_fsm->subghz_settings, "Frequency", 1, NULL, app_fsm);
+    app_fsm->subghz_manual_item =
+        variable_item_list_add(app_fsm->subghz_settings, "KHz", 1, NULL, app_fsm);
+    variable_item_list_set_enter_callback(
+        app_fsm->subghz_settings, dcf77_subghz_settings_enter_callback, app_fsm);
+    view_set_context(variable_item_list_get_view(app_fsm->subghz_settings), app_fsm);
+    view_set_input_callback(
+        variable_item_list_get_view(app_fsm->subghz_settings), dcf77_subghz_settings_input_callback);
     view_dispatcher_add_view(
         app_fsm->view_dispatcher,
         Dcf77ViewSubGhzSettings,
         variable_item_list_get_view(app_fsm->subghz_settings));
 
+    app_fsm->subghz_freq_input = number_input_alloc();
+    number_input_set_header_text(app_fsm->subghz_freq_input, "khz");
+    view_dispatcher_add_view(
+        app_fsm->view_dispatcher,
+        Dcf77ViewSubGhzFreqInput,
+        number_input_get_view(app_fsm->subghz_freq_input));
+
     app_fsm->debug_settings = variable_item_list_alloc();
-    item = variable_item_list_add(
-        app_fsm->debug_settings, "Sound", 2, dcf77_debug_sound_change_callback, app_fsm);
-    variable_item_set_current_value_index(item, app_fsm->sound_enabled ? 0 : 1);
-    variable_item_set_current_value_text(item, app_fsm->sound_enabled ? "Yes" : "No");
+    app_fsm->debug_speaker_item = variable_item_list_add(
+        app_fsm->debug_settings,
+        "Speaker",
+        (uint8_t)(dcf77_subghz_note_count() + 1U),
+        dcf77_debug_speaker_change_callback,
+        app_fsm);
     view_dispatcher_add_view(
         app_fsm->view_dispatcher,
         Dcf77ViewDebugSettings,
@@ -273,6 +283,7 @@ void dcf77_gui_deinit(AppFSM* app_fsm) {
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewEgg);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewAbout);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewDebugSettings);
+    view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzFreqInput);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewTx);
@@ -281,6 +292,7 @@ void dcf77_gui_deinit(AppFSM* app_fsm) {
     widget_free(app_fsm->egg_widget);
     widget_free(app_fsm->about_widget);
     view_free(app_fsm->tx_view);
+    number_input_free(app_fsm->subghz_freq_input);
     variable_item_list_free(app_fsm->debug_settings);
     variable_item_list_free(app_fsm->subghz_settings);
     variable_item_list_free(app_fsm->lf_settings);
