@@ -9,6 +9,10 @@ static const char about_text[] =
 
 static const char egg_text[] = "wow you found an easter egg\n";
 
+static const char* dcf77_tx_lf_state_label(const AppFSM* app_fsm) {
+    return app_fsm->lf_ready ? "on" : "off";
+}
+
 static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
     Dcf77TxViewModel* tx_model = model;
     AppFSM* app_fsm = tx_model->app_fsm;
@@ -22,28 +26,38 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
         snprintf(
             buffer, sizeof(buffer), "Pulse 0.1s every 0.5s");
         canvas_draw_str_aligned(canvas, 64, 30, AlignCenter, AlignBottom, buffer);
-        snprintf(buffer, sizeof(buffer), "LF %lu Hz", (unsigned long)app_fsm->lf_freq);
-        canvas_draw_str_aligned(canvas, 64, 44, AlignCenter, AlignBottom, buffer);
         snprintf(
             buffer,
             sizeof(buffer),
-            "TX %s",
-            app_fsm->lf_transmit_enabled ? "enabled" : "disabled");
+            "LF %s %lu Hz",
+            dcf77_tx_lf_state_label(app_fsm),
+            (unsigned long)app_fsm->lf_freq);
+        canvas_draw_str_aligned(canvas, 64, 44, AlignCenter, AlignBottom, buffer);
+        snprintf(buffer, sizeof(buffer), "SubGHz %s", app_fsm->subghz_ready ? "on" : "off");
         canvas_draw_str_aligned(canvas, 64, 58, AlignCenter, AlignBottom, buffer);
         return;
     }
 
     if(app_fsm->current_signal == RadioClockSignalWwvb) {
         canvas_draw_frame(canvas, 0, 0, 128, 64);
+        canvas_set_font(canvas, FontSecondary);
+        snprintf(
+            buffer,
+            sizeof(buffer),
+            "%02d.%02d.%02d",
+            app_fsm->tx_day,
+            app_fsm->tx_month,
+            app_fsm->tx_year);
+        canvas_draw_str_aligned(canvas, 64, 12, AlignCenter, AlignBottom, buffer);
         canvas_set_font(canvas, FontPrimary);
         snprintf(
             buffer,
             sizeof(buffer),
-            "%02d:%02d doy %03u",
+            "%02d:%02d:%02d",
             app_fsm->tx_hour,
             app_fsm->tx_minute,
-            app_fsm->tx_day_of_year);
-        canvas_draw_str_aligned(canvas, 64, 12, AlignCenter, AlignBottom, buffer);
+            app_fsm->bit_number);
+        canvas_draw_str_aligned(canvas, 64, 28, AlignCenter, AlignBottom, buffer);
         canvas_set_font(canvas, FontSecondary);
         snprintf(
             buffer,
@@ -51,15 +65,7 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
             "sec %02u pulse %s",
             app_fsm->bit_number,
             dcf77_logic_get_pulse_label((RadioClockPulse)app_fsm->bit_value));
-        canvas_draw_str_aligned(canvas, 64, 28, AlignCenter, AlignBottom, buffer);
-        snprintf(buffer, sizeof(buffer), "LF %lu Hz", (unsigned long)app_fsm->lf_freq);
-        canvas_draw_str_aligned(canvas, 64, 42, AlignCenter, AlignBottom, buffer);
-        snprintf(
-            buffer,
-            sizeof(buffer),
-            "SubGHz %s",
-            app_fsm->subghz_signal_mode == SubGhzSignalModeDisabled ? "off" : "on");
-        canvas_draw_str_aligned(canvas, 64, 56, AlignCenter, AlignBottom, buffer);
+        canvas_draw_str_aligned(canvas, 64, 46, AlignCenter, AlignBottom, buffer);
         return;
     }
 

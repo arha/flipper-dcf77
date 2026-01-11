@@ -86,9 +86,49 @@ static void test_field_encoding_and_markers(void) {
     assert(frame[58] == RadioClockPulseZero);
 }
 
+static void test_day_of_year_boundaries(void) {
+    assert(wwvb_day_of_year(2025, 1, 1) == 1);
+    assert(wwvb_day_of_year(2025, 12, 31) == 365);
+    assert(wwvb_day_of_year(2024, 2, 29) == 60);
+    assert(wwvb_day_of_year(2024, 12, 31) == 366);
+}
+
+static void test_ut1_sign_and_magnitude_bits(void) {
+    RadioClockPulse frame[WWVB_FRAME_SECONDS];
+
+    set_wwvb_am_symbols(frame, 0, 0, 1, 26, false, false, false, false, 0);
+    assert(frame[36] == RadioClockPulseZero);
+    assert(frame[37] == RadioClockPulseZero);
+    assert(frame[38] == RadioClockPulseZero);
+    assert(frame[40] == RadioClockPulseZero);
+    assert(frame[41] == RadioClockPulseZero);
+    assert(frame[42] == RadioClockPulseZero);
+    assert(frame[43] == RadioClockPulseZero);
+
+    set_wwvb_am_symbols(frame, 0, 0, 1, 26, false, false, false, false, 3);
+    assert(frame[36] == RadioClockPulseOne);
+    assert(frame[37] == RadioClockPulseZero);
+    assert(frame[38] == RadioClockPulseOne);
+    assert(frame[40] == RadioClockPulseZero);
+    assert(frame[41] == RadioClockPulseZero);
+    assert(frame[42] == RadioClockPulseOne);
+    assert(frame[43] == RadioClockPulseOne);
+
+    set_wwvb_am_symbols(frame, 0, 0, 1, 26, false, false, false, false, -6);
+    assert(frame[36] == RadioClockPulseZero);
+    assert(frame[37] == RadioClockPulseOne);
+    assert(frame[38] == RadioClockPulseZero);
+    assert(frame[40] == RadioClockPulseZero);
+    assert(frame[41] == RadioClockPulseOne);
+    assert(frame[42] == RadioClockPulseOne);
+    assert(frame[43] == RadioClockPulseZero);
+}
+
 int main(void) {
     test_nist_gold_vector_2001_day_258_1842_utc();
     test_field_encoding_and_markers();
+    test_day_of_year_boundaries();
+    test_ut1_sign_and_magnitude_bits();
     puts("test_set_wwvb_message: OK");
     return 0;
 }

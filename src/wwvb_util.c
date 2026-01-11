@@ -8,7 +8,7 @@ static void wwvb_set_symbol(RadioClockPulse* frame, uint8_t bit, RadioClockPulse
     frame[bit] = pulse;
 }
 
-static void wwvb_set_bcd_digit(
+static void wwvb_set_weighted_decimal(
     RadioClockPulse* frame,
     uint16_t value,
     const uint8_t* bit_positions,
@@ -26,7 +26,7 @@ static void wwvb_set_bcd_digit(
     }
 }
 
-static bool wwvb_is_leap_year(uint16_t year) {
+bool wwvb_is_leap_year(uint16_t year) {
     return ((year % 4U) == 0U) && (((year % 100U) != 0U) || ((year % 400U) == 0U));
 }
 
@@ -67,14 +67,22 @@ void set_wwvb_am_symbols(
 
     memset(dest, RadioClockPulseZero, sizeof(RadioClockPulse) * WWVB_FRAME_SECONDS);
 
-    for(size_t i = 0; i < sizeof(marker_bits); i++) {
+    for(size_t i = 0; i < (sizeof(marker_bits) / sizeof(marker_bits[0])); i++) {
         wwvb_set_symbol(dest, marker_bits[i], RadioClockPulseMarker);
     }
 
-    wwvb_set_bcd_digit(dest, minute, minute_bits, minute_weights, sizeof(minute_bits));
-    wwvb_set_bcd_digit(dest, hour, hour_bits, hour_weights, sizeof(hour_bits));
-    wwvb_set_bcd_digit(dest, day_of_year, doy_bits, doy_weights, sizeof(doy_bits));
-    wwvb_set_bcd_digit(dest, year, year_bits, year_weights, sizeof(year_bits));
+    wwvb_set_weighted_decimal(
+        dest,
+        minute,
+        minute_bits,
+        minute_weights,
+        sizeof(minute_bits) / sizeof(minute_bits[0]));
+    wwvb_set_weighted_decimal(
+        dest, hour, hour_bits, hour_weights, sizeof(hour_bits) / sizeof(hour_bits[0]));
+    wwvb_set_weighted_decimal(
+        dest, day_of_year, doy_bits, doy_weights, sizeof(doy_bits) / sizeof(doy_bits[0]));
+    wwvb_set_weighted_decimal(
+        dest, year, year_bits, year_weights, sizeof(year_bits) / sizeof(year_bits[0]));
 
     if(ut1_correction_tenths > 0) {
         wwvb_set_symbol(dest, 36, RadioClockPulseOne);

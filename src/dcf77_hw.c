@@ -1,6 +1,7 @@
 #include "dcf77_hw.h"
 #include "dcf77_app.h"
 #include "dcf77_logic.h"
+#include "radio_clock_protocol.h"
 
 #include <stm32wbxx_ll_lptim.h>
 #include <stm32wbxx_ll_bus.h>
@@ -153,11 +154,12 @@ static void dcf77_scheduler_advance_second(AppFSM* app_fsm) {
     }
 
     app_fsm->bit_number = app_fsm->scheduler_second;
-    app_fsm->bit_value = dcf77_get_message_bit(app_fsm->dcf77_message, app_fsm->bit_number);
+    app_fsm->bit_value = app_fsm->pulse_frame[app_fsm->bit_number];
 }
 
 static void dcf77_scheduler_apply_current_second(AppFSM* app_fsm) {
-    if(app_fsm->current_signal == RadioClockSignalDcf77 && app_fsm->scheduler_second == 59) {
+    if(!radio_clock_protocol_starts_low(
+           app_fsm->current_signal, app_fsm->pulse_frame[app_fsm->scheduler_second])) {
         dcf77_apply_output(app_fsm, true);
         dcf77_scheduler_disable_compare();
         return;

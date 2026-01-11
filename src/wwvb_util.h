@@ -18,6 +18,7 @@ void set_wwvb_am_symbols(
     bool leap_second,
     int8_t ut1_correction_tenths);
 
+bool wwvb_is_leap_year(uint16_t year);
 uint16_t wwvb_day_of_year(uint16_t year, uint8_t month, uint8_t day);
 
 #endif

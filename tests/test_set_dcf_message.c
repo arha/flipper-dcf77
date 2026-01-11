@@ -125,12 +125,51 @@ static void test_bcd_layout_and_even_parity_on_boundaries(void) {
     assert(parity_range(frame, 36, 58) == 0);
 }
 
+static void test_invalid_calendar_values_still_encode_as_raw_bcd(void) {
+    uint8_t frame[8] = {0};
+
+    set_dcf_message(frame, 58, 21, 37, 13, 26, 7, false, false, false, false, 0x0000);
+
+    assert(bits_to_uint(frame, 21, 7) == 0x58);
+    assert(bits_to_uint(frame, 29, 6) == 0x21);
+    assert(bits_to_uint(frame, 36, 6) == 0x37);
+    assert(bits_to_uint(frame, 45, 5) == 0x13);
+    assert(bits_to_uint(frame, 50, 8) == 0x26);
+    assert(parity_range(frame, 21, 28) == 0);
+    assert(parity_range(frame, 29, 35) == 0);
+    assert(parity_range(frame, 36, 58) == 0);
+}
+
+static void test_impossible_february_date_remains_decodable(void) {
+    uint8_t frame[8] = {0};
+
+    set_dcf_message(frame, 1, 2, 30, 2, 24, 5, false, false, false, false, 0x0000);
+
+    assert(bits_to_uint(frame, 36, 6) == 0x30);
+    assert(bits_to_uint(frame, 45, 5) == 0x02);
+    assert(bits_to_uint(frame, 50, 8) == 0x24);
+    assert(bits_to_uint(frame, 42, 3) == 5);
+    assert(parity_range(frame, 36, 58) == 0);
+}
+
+static void test_weekday_uses_only_three_bits(void) {
+    uint8_t frame[8] = {0};
+
+    set_dcf_message(frame, 12, 3, 4, 5, 26, 15, false, false, false, false, 0x0000);
+
+    assert(bits_to_uint(frame, 42, 3) == 7);
+    assert(parity_range(frame, 36, 58) == 0);
+}
+
 int main(void) {
     test_online_gold_vector_2026_01_05_1430_cet();
     test_online_gold_vector_2024_06_15_0807_cest();
     test_online_gold_vector_2024_02_29_2359_cet();
     test_control_bits_and_civil_warning_bits();
     test_bcd_layout_and_even_parity_on_boundaries();
+    test_invalid_calendar_values_still_encode_as_raw_bcd();
+    test_impossible_february_date_remains_decodable();
+    test_weekday_uses_only_three_bits();
 
     puts("test_set_dcf_message: OK");
     return 0;

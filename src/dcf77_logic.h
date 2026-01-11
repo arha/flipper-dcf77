@@ -8,7 +8,6 @@ typedef struct AppFSM AppFSM;
 #include <stdbool.h>
 #include "radio_clock_pulse.h"
 
-uint8_t dcf77_get_message_bit(const uint8_t* message, uint8_t bit);
 const char* dcf77_logic_get_pulse_label(RadioClockPulse pulse);
 void dcf77_logic_init(AppFSM* app_fsm);
 void dcf77_logic_prepare_minute(AppFSM* app_fsm, const DateTime* dt, bool as_next_minute);

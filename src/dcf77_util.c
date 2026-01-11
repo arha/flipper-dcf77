@@ -1,135 +1,104 @@
 #include "dcf77_util.h"
 
-void set_dcf_message(uint8_t* dest, uint8_t minute, uint8_t hour,
-                     uint8_t day, uint8_t month, uint8_t year, uint8_t dow,
-                     bool dst, bool predst, bool abnormal, bool leap, uint16_t civbits)
-{
-    uint8_t bcd_minute = 0;
-    uint8_t bcd_hour = 0;
-    uint8_t bcd_day = 0;
-    uint8_t bcd_month = 0;
-    uint8_t bcd_year = 0;
+static uint8_t dcf77_to_bcd(uint8_t value) {
+    return (uint8_t)(((value / 10U) << 4U) | (value % 10U));
+}
 
-    /*  converting binary to bcd (which looks like hex, without the a-f digits)
-        this is very common in old-school electronics */
-    bcd_minute =    ((minute / 10) << 4)    | (minute % 10);
-    bcd_hour =      ((hour / 10) << 4)      | (hour % 10);
-    bcd_day =       ((day / 10) << 4)       | (day % 10);
-    bcd_month =     ((month / 10) << 4)     | (month % 10);
-    bcd_year =      ((year / 10) << 4)      | (year % 10);
+static bool dcf77_u8_get_bit(uint8_t value, uint8_t bit) {
+    return !!(value & (1U << bit));
+}
 
-    /*  parity bits */
-    bool p_minute = 0;
-    bool p_hour = 0;
-    bool p_date = 0;
+static bool dcf77_even_parity_u8(uint8_t value) {
+    bool parity = false;
 
-    for (int i = 0; i < 8; i++)
-    {
-        p_minute ^= !!(bcd_minute & (1 << i));
-        p_hour   ^= !!(bcd_hour & (1 << i));
-
-        p_date ^= !!(bcd_day & (1 << i));
-        p_date ^= !!(bcd_month & (1 << i));
-        p_date ^= !!(bcd_year & (1 << i));
-        p_date ^= !!((dow & 0x07) & (1 << i));
+    for(uint8_t bit = 0; bit < 8U; bit++) {
+        parity ^= dcf77_u8_get_bit(value, bit);
     }
 
-    dest[0] = (uint8_t)(civbits >> 7);
-    dest[1] = ((civbits & 0x7F) << 1) | abnormal;
+    return parity;
+}
 
-    // d2: 16-23;  16=adst, 17=dst, 18=!dsst, 19=leap, 20=1, 21-22-23 are minute lsb 1, 2, 3
-    dest[2] = (predst << 7) | (dst << 6) | (!dst << 5) | (leap << 4) | (1 << 3);
-    dest[2]|= BBIT(bcd_minute, 0) << 2;
-    dest[2]|= BBIT(bcd_minute, 1) << 1;
-    dest[2]|= BBIT(bcd_minute, 2) << 0;
-    //dest[2]|= (bcd_minute & (1 << 2));
+static void dcf77_message_set_bit(uint8_t* message, uint8_t bit, bool value) {
+    const uint8_t byte_index = bit / 8U;
+    const uint8_t bit_index = bit % 8U;
+    const uint8_t mask = (uint8_t)(1U << (7U - bit_index));
 
-    dest[3] =0;
-    // DCF bit 24 is byte 3, bit 7
-    dest[3]|= BBIT(bcd_minute, 3) << 7;
-    // DCF bit 25 is byte 3, bit 6
-    dest[3]|= BBIT(bcd_minute, 4) << 6;
-    // DCF bit 26 is byte 3, bit 5
-    dest[3]|= BBIT(bcd_minute, 5) << 5;
-    // DCF bit 27 is byte 3, bit 4
-    dest[3]|= BBIT(bcd_minute, 6) << 4;
-    // DCF bit 28 is byte 3, bit 3  (E parity, minutes)
-    dest[3]|= p_minute << 3;
-    // DCF bit 29 is byte 3, bit 2
-    dest[3]|= BBIT(bcd_hour, 0) << 2;
-    // DCF bit 30 is byte 3, bit 1
-    dest[3]|= BBIT(bcd_hour, 1) << 1;
-    // DCF bit 31 is byte 3, bit 0
-    dest[3]|= BBIT(bcd_hour, 2) << 0;
+    if(value) {
+        message[byte_index] |= mask;
+    } else {
+        message[byte_index] &= (uint8_t)~mask;
+    }
+}
 
-    // d3: 24-31, 24-27 min lsb 3-6; 28=p, 29-31: hours lsb 0-2
-    //dest[3] = bcd_minute << 3 | (p_minute << 3);
+static void dcf77_message_write_bits(
+    uint8_t* message,
+    const uint8_t* bit_positions,
+    size_t count,
+    uint8_t value) {
+    for(size_t i = 0; i < count; i++) {
+        dcf77_message_set_bit(message, bit_positions[i], dcf77_u8_get_bit(value, (uint8_t)i));
+    }
+}
 
-    // d4: 32-39
-    dest[4] =0;
-    // DCF bit 32 is byte 4, bit 7
-    dest[4]|= BBIT(bcd_hour, 3) << 7;
-    // DCF bit 33 is byte 4, bit 6
-    dest[4]|= BBIT(bcd_hour, 4) << 6;
-    // DCF bit 34 is byte 4, bit 5
-    dest[4]|= BBIT(bcd_hour, 5)  << 5;
-    // DCF bit 35 is byte 4, bit 4
-    dest[4]|= p_hour << 4;
-    // DCF bit 36 is byte 4, bit 3
-    dest[4]|= BBIT(bcd_day, 0) << 3;
-    // DCF bit 37 is byte 4, bit 2
-    dest[4]|= BBIT(bcd_day, 1) << 2;
-    // DCF bit 38 is byte 4, bit 1
-    dest[4]|= BBIT(bcd_day, 2) << 1;
-    // DCF bit 39 is byte 4, bit 0
-    dest[4]|= BBIT(bcd_day, 3) << 0;
+bool dcf77_message_get_bit(const uint8_t* message, uint8_t bit) {
+    if(bit == 59U || bit == 0U) {
+        return false;
+    }
 
-    // d5: 40-47, 40-41: day lsb 4-5, 42-44: dow; 45-47: month lsb 0-2
-    dest[5] =0;
-    // DCF bit 40 is byte 5, bit 7
-    dest[5]|= BBIT(bcd_day, 4) << 7;
-    // DCF bit 41 is byte 5, bit 6
-    dest[5]|= BBIT(bcd_day, 5) << 6;
-    // DCF bit 42 is byte 5, bit 5
-    dest[5]|= BBIT(dow, 0) << 5;
-    // DCF bit 43 is byte 5, bit 4
-    dest[5]|= BBIT(dow, 1) << 4;
-    // DCF bit 44 is byte 5, bit 3
-    dest[5]|= BBIT(dow, 2) << 3;
-    // DCF bit 45 is byte 5, bit 2
-    dest[5]|= BBIT(bcd_month, 0) << 2;
-    // DCF bit 46 is byte 5, bit 1
-    dest[5]|= BBIT(bcd_month, 1) << 1;
-    // DCF bit 47 is byte 5, bit 0
-    dest[5]|= BBIT(bcd_month, 2) << 0;
+    return !!(message[bit / 8U] & (1U << (7U - (bit % 8U))));
+}
 
+void set_dcf_message(
+    uint8_t* dest,
+    uint8_t minute,
+    uint8_t hour,
+    uint8_t day,
+    uint8_t month,
+    uint8_t year,
+    uint8_t dow,
+    bool dst,
+    bool predst,
+    bool abnormal,
+    bool leap,
+    uint16_t civbits) {
+    static const uint8_t minute_bits[] = {21, 22, 23, 24, 25, 26, 27};
+    static const uint8_t hour_bits[] = {29, 30, 31, 32, 33, 34};
+    static const uint8_t day_bits[] = {36, 37, 38, 39, 40, 41};
+    static const uint8_t dow_bits[] = {42, 43, 44};
+    static const uint8_t month_bits[] = {45, 46, 47, 48, 49};
+    static const uint8_t year_bits[] = {50, 51, 52, 53, 54, 55, 56, 57};
+    const uint8_t bcd_minute = dcf77_to_bcd(minute);
+    const uint8_t bcd_hour = dcf77_to_bcd(hour);
+    const uint8_t bcd_day = dcf77_to_bcd(day);
+    const uint8_t bcd_month = dcf77_to_bcd(month);
+    const uint8_t bcd_year = dcf77_to_bcd(year);
+    const uint8_t dow_bits_value = dow & 0x07U;
+    const bool p_minute = dcf77_even_parity_u8(bcd_minute);
+    const bool p_hour = dcf77_even_parity_u8(bcd_hour);
+    const bool p_date = dcf77_even_parity_u8(bcd_day) ^ dcf77_even_parity_u8(bcd_month) ^
+                        dcf77_even_parity_u8(bcd_year) ^ dcf77_even_parity_u8(dow_bits_value);
 
-    // d6: 48-55; 48-49 month lsb 3-4; 50-55: year lsb 0-5
-    dest[6] =0;
-    // DCF bit 48 is byte 6, bit 7
-    dest[6]|= BBIT(bcd_month, 3) << 7;
-    // DCF bit 49 is byte 6, bit 6
-    dest[6]|= BBIT(bcd_month, 4) << 6;
-    // DCF bit 50 is byte 6, bit 5
-    dest[6]|= BBIT(bcd_year, 0) << 5;
-    // DCF bit 51 is byte 6, bit 4
-    dest[6]|= BBIT(bcd_year, 1) << 4;
-    // DCF bit 52 is byte 6, bit 3
-    dest[6]|= BBIT(bcd_year, 2) << 3;
-    // DCF bit 53 is byte 6, bit 2
-    dest[6]|= BBIT(bcd_year, 3) << 2;
-    // DCF bit 54 is byte 6, bit 1
-    dest[6]|= BBIT(bcd_year, 4) << 1;
-    // DCF bit 55 is byte 6, bit 0
-    dest[6]|= BBIT(bcd_year, 5) << 0;
+    for(uint8_t byte_index = 0; byte_index < 8U; byte_index++) {
+        dest[byte_index] = 0;
+    }
 
+    for(uint8_t bit = 1; bit <= 14U; bit++) {
+        dcf77_message_set_bit(dest, bit, !!(civbits & (1U << (14U - bit))));
+    }
 
-    // d7: 56-63; 56-57: year lsb 6-7; 58: date parity; 59: special minute marker
-    dest[7] =0;
-    // DCF bit 56 is byte 7, bit 7
-    dest[7]|= BBIT(bcd_year, 6) << 7;
-    // DCF bit 57 is byte 7, bit 6
-    dest[7]|= BBIT(bcd_year, 7) << 6;
-    // DCF bit 58 is byte 7, bit 5
-    dest[7]|= p_date << 5;
+    dcf77_message_set_bit(dest, 15, abnormal);
+    dcf77_message_set_bit(dest, 16, predst);
+    dcf77_message_set_bit(dest, 17, dst);
+    dcf77_message_set_bit(dest, 18, !dst);
+    dcf77_message_set_bit(dest, 19, leap);
+    dcf77_message_set_bit(dest, 20, true);
+    dcf77_message_write_bits(dest, minute_bits, sizeof(minute_bits), bcd_minute);
+    dcf77_message_set_bit(dest, 28, p_minute);
+    dcf77_message_write_bits(dest, hour_bits, sizeof(hour_bits), bcd_hour);
+    dcf77_message_set_bit(dest, 35, p_hour);
+    dcf77_message_write_bits(dest, day_bits, sizeof(day_bits), bcd_day);
+    dcf77_message_write_bits(dest, dow_bits, sizeof(dow_bits), dow_bits_value);
+    dcf77_message_write_bits(dest, month_bits, sizeof(month_bits), bcd_month);
+    dcf77_message_write_bits(dest, year_bits, sizeof(year_bits), bcd_year);
+    dcf77_message_set_bit(dest, 58, p_date);
 }
