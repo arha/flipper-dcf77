@@ -13,10 +13,83 @@ static const char* dcf77_tx_lf_state_label(const AppFSM* app_fsm) {
     return app_fsm->lf_ready ? "on" : "off";
 }
 
+static void dcf77_tx_get_display_datetime(const AppFSM* app_fsm, DateTime* dt) {
+    if(app_fsm->current_signal == RadioClockSignalTest) {
+        furi_hal_rtc_get_datetime(dt);
+        return;
+    }
+
+    dt->year = 2000U + app_fsm->tx_year;
+    dt->month = app_fsm->tx_month;
+    dt->day = app_fsm->tx_day;
+    dt->hour = app_fsm->tx_hour;
+    dt->minute = app_fsm->tx_minute;
+    dt->second = app_fsm->bit_number;
+}
+
+static void dcf77_tx_render_user_mode(Canvas* const canvas, const AppFSM* app_fsm) {
+    DateTime dt;
+    char buffer[64];
+
+    dcf77_tx_get_display_datetime(app_fsm, &dt);
+
+    canvas_draw_frame(canvas, 0, 0, 128, 64);
+    canvas_set_font(canvas, FontPrimary);
+
+    snprintf(buffer, sizeof(buffer), "%02u:%02u:%02u", dt.hour, dt.minute, dt.second);
+    canvas_draw_str_aligned(canvas, 4, 12, AlignLeft, AlignBottom, buffer);
+    snprintf(buffer, sizeof(buffer), "%02u.%02u.%02u", dt.day, dt.month, dt.year % 100U);
+    canvas_draw_str_aligned(canvas, 124, 12, AlignRight, AlignBottom, buffer);
+
+    canvas_set_font(canvas, FontSecondary);
+
+    if(app_fsm->lf_ready) {
+        snprintf(
+            buffer,
+            sizeof(buffer),
+            "lf: %lu.%03lu kHz",
+            (unsigned long)(app_fsm->lf_freq / 1000U),
+            (unsigned long)(app_fsm->lf_freq % 1000U));
+    } else {
+        snprintf(buffer, sizeof(buffer), "lf: off");
+    }
+    canvas_draw_str(canvas, 4, 28, buffer);
+
+    if(app_fsm->subghz_ready) {
+        snprintf(buffer, sizeof(buffer), "subghz: %s MHz", app_fsm->subghz_frequency_text);
+    } else {
+        snprintf(buffer, sizeof(buffer), "subghz: off");
+    }
+    canvas_draw_str(canvas, 4, 40, buffer);
+
+    if(dcf77_app_gpio_rf_enabled(app_fsm)) {
+        snprintf(
+            buffer,
+            sizeof(buffer),
+            "GPIO: %s RF %s %s",
+            app_fsm->gpio_baseband_text,
+            app_fsm->gpio_rf_text,
+            app_fsm->gpio_rf_duty_text);
+    } else {
+        snprintf(
+            buffer,
+            sizeof(buffer),
+            "GPIO: %s RF %s",
+            app_fsm->gpio_baseband_text,
+            app_fsm->gpio_rf_text);
+    }
+    canvas_draw_str(canvas, 4, 52, buffer);
+}
+
 static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
     Dcf77TxViewModel* tx_model = model;
     AppFSM* app_fsm = tx_model->app_fsm;
     char buffer[64];
+
+    if(app_fsm->screen_mode == Dcf77ScreenModeUser) {
+        dcf77_tx_render_user_mode(canvas, app_fsm);
+        return;
+    }
 
     if(app_fsm->current_signal == RadioClockSignalTest) {
         canvas_draw_frame(canvas, 0, 0, 128, 64);
@@ -230,12 +303,45 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         number_input_get_view(app_fsm->subghz_freq_input));
 
     app_fsm->debug_settings = variable_item_list_alloc();
+    app_fsm->debug_gpio_baseband_item = variable_item_list_add(
+        app_fsm->debug_settings,
+        "GPIO baseband",
+        (uint8_t)dcf77_debug_gpio_baseband_pin_count(),
+        NULL,
+        app_fsm);
+    app_fsm->debug_gpio_rf_item = variable_item_list_add(
+        app_fsm->debug_settings,
+        "GPIO RF",
+        (uint8_t)dcf77_debug_gpio_rf_pin_count(),
+        NULL,
+        app_fsm);
+    app_fsm->debug_gpio_duty_item = variable_item_list_add(
+        app_fsm->debug_settings,
+        "GPIO duty cycle",
+        (uint8_t)dcf77_debug_gpio_rf_duty_count(),
+        NULL,
+        app_fsm);
+    app_fsm->debug_led_item = variable_item_list_add(
+        app_fsm->debug_settings,
+        "LED",
+        (uint8_t)dcf77_debug_led_color_count(),
+        NULL,
+        app_fsm);
+    app_fsm->debug_screen_item = variable_item_list_add(
+        app_fsm->debug_settings,
+        "Screen",
+        (uint8_t)dcf77_debug_screen_mode_count(),
+        NULL,
+        app_fsm);
     app_fsm->debug_speaker_item = variable_item_list_add(
         app_fsm->debug_settings,
         "Speaker",
         (uint8_t)(dcf77_subghz_note_count() + 1U),
-        dcf77_debug_speaker_change_callback,
+        NULL,
         app_fsm);
+    view_set_context(variable_item_list_get_view(app_fsm->debug_settings), app_fsm);
+    view_set_input_callback(
+        variable_item_list_get_view(app_fsm->debug_settings), dcf77_debug_settings_input_callback);
     view_dispatcher_add_view(
         app_fsm->view_dispatcher,
         Dcf77ViewDebugSettings,

@@ -3,13 +3,14 @@ CFLAGS ?= -std=c11 -Wall -Wextra -Werror -I../src
 
 .PHONY: all clean test
 
-all: test_set_dcf_message test_set_wwvb_message test_radio_clock_protocol test_subghz_settings
+all: test_set_dcf_message test_set_wwvb_message test_radio_clock_protocol test_subghz_settings test_debug_settings
 
-test: test_set_dcf_message test_set_wwvb_message test_radio_clock_protocol test_subghz_settings
+test: test_set_dcf_message test_set_wwvb_message test_radio_clock_protocol test_subghz_settings test_debug_settings
 	./test_set_dcf_message
 	./test_set_wwvb_message
 	./test_radio_clock_protocol
 	./test_subghz_settings
+	./test_debug_settings
 
 test_set_dcf_message: test_set_dcf_message.c ../src/dcf77_util.c ../src/dcf77_util.h
 	$(CC) $(CFLAGS) -o $@ test_set_dcf_message.c ../src/dcf77_util.c
@@ -23,5 +24,8 @@ test_radio_clock_protocol: test_radio_clock_protocol.c ../src/radio_clock_protoc
 test_subghz_settings: test_subghz_settings.c ../src/subghz_settings.c ../src/subghz_settings.h
 	$(CC) $(CFLAGS) -o $@ test_subghz_settings.c ../src/subghz_settings.c
 
+test_debug_settings: test_debug_settings.c ../src/debug_settings.c ../src/debug_settings.h
+	$(CC) $(CFLAGS) -o $@ test_debug_settings.c ../src/debug_settings.c
+
 clean:
-	rm -f test_set_dcf_message test_set_wwvb_message test_radio_clock_protocol test_subghz_settings
+	rm -f test_set_dcf_message test_set_wwvb_message test_radio_clock_protocol test_subghz_settings test_debug_settings

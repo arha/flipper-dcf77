@@ -11,6 +11,67 @@
 #define DCF77_TEST_PULSE_MS 100U
 #define DCF77_TEST_PERIOD_SLICES 5U
 
+static const GpioPinRecord* dcf77_gpio_pin_record(uint8_t pin_number) {
+    if(pin_number == 0U) {
+        return NULL;
+    }
+
+    return furi_hal_resources_pin_by_number(pin_number);
+}
+
+static const GpioPinRecord* dcf77_output_gpio_record(const AppFSM* app_fsm) {
+    return dcf77_gpio_pin_record(app_fsm->gpio_baseband_pin_number);
+}
+
+static const GpioPinRecord* dcf77_gpio_rf_record(const AppFSM* app_fsm) {
+    return dcf77_gpio_pin_record(app_fsm->gpio_rf_pin_number);
+}
+
+static void dcf77_hw_led_color_levels(
+    const AppFSM* app_fsm,
+    uint8_t* red,
+    uint8_t* green,
+    uint8_t* blue) {
+    *red = 0U;
+    *green = 0U;
+    *blue = 0U;
+
+    switch(app_fsm->led_color_index) {
+    case Dcf77LedColorRed:
+        *red = 0xFFU;
+        break;
+    case Dcf77LedColorOrange:
+        *red = 0xFFU;
+        *green = 0x40U;
+        break;
+    case Dcf77LedColorGreen:
+        *green = 0xFFU;
+        break;
+    case Dcf77LedColorBlue:
+        *blue = 0xFFU;
+        break;
+    case Dcf77LedColorYellow:
+        *red = 0xFFU;
+        *green = 0xFFU;
+        break;
+    case Dcf77LedColorCyan:
+        *green = 0xFFU;
+        *blue = 0xFFU;
+        break;
+    case Dcf77LedColorMagenta:
+        *red = 0xFFU;
+        *blue = 0xFFU;
+        break;
+    case Dcf77LedColorWhite:
+        *red = 0xFFU;
+        *green = 0xFFU;
+        *blue = 0xFFU;
+        break;
+    default:
+        break;
+    }
+}
+
 static bool dcf77_subghz_ook_level(bool output) {
 #if SUBGHZ_OOK_INVERT
     return !output;
@@ -101,7 +162,7 @@ static void dcf77_apply_output(AppFSM* app_fsm, bool output) {
     app_fsm->output_state = output;
     app_fsm->output_dirty = true;
 
-    dcf77_output_gpio_set(output);
+    dcf77_output_gpio_set(app_fsm, output);
     if(app_fsm->lf_ready) {
         if(output) {
             furi_hal_rfid_tim_read_continue();
@@ -124,11 +185,11 @@ static void dcf77_apply_output_force(AppFSM* app_fsm, bool output) {
 void dcf77_debug_sync_frame(AppFSM* app_fsm) {
     for(uint8_t i = 0; i < 5; i++) {
         dcf77_apply_output(app_fsm, true);
-        dcf77_hw_indicator_set(true);
+        dcf77_hw_indicator_set(app_fsm, true);
         furi_delay_ms(100);
 
         dcf77_apply_output(app_fsm, false);
-        dcf77_hw_indicator_set(false);
+        dcf77_hw_indicator_set(app_fsm, false);
         furi_delay_ms(100);
     }
 
@@ -270,32 +331,97 @@ void dcf77_timing_stop(AppFSM* app_fsm) {
     furi_hal_bus_disable(FuriHalBusLPTIM2);
 }
 
-void dcf77_hw_indicator_set(bool status) {
+void dcf77_hw_indicator_set(const AppFSM* app_fsm, bool status) {
     static bool last;
+    static uint8_t last_red;
+    static uint8_t last_green;
+    static uint8_t last_blue;
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
 
-    if(last != status) {
-        if(status) {
-            furi_hal_light_set(LightRed, 0xFF);
-            furi_hal_light_set(LightGreen, 0x1F);
-        } else {
-            furi_hal_light_set(LightRed | LightGreen | LightBlue, 0);
-        }
+    dcf77_hw_led_color_levels(app_fsm, &red, &green, &blue);
+
+    if(last == status && last_red == red && last_green == green && last_blue == blue) {
+        return;
+    }
+
+    if(status && (red != 0U || green != 0U || blue != 0U)) {
+        furi_hal_light_set(LightRed, red);
+        furi_hal_light_set(LightGreen, green);
+        furi_hal_light_set(LightBlue, blue);
+    } else {
+        furi_hal_light_set(LightRed | LightGreen | LightBlue, 0);
     }
 
     last = status;
+    last_red = red;
+    last_green = green;
+    last_blue = blue;
 }
 
-void dcf77_output_gpio_init(void) {
-    furi_hal_gpio_write(OUTPUT_PIN, false);
-    furi_hal_gpio_init(OUTPUT_PIN, GpioModeOutputPushPull, GpioPullNo, GpioSpeedVeryHigh);
+void dcf77_hw_indicator_blink_preview(const AppFSM* app_fsm) {
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+
+    dcf77_hw_led_color_levels(app_fsm, &red, &green, &blue);
+
+    if(red == 0U && green == 0U && blue == 0U) {
+        dcf77_hw_indicator_set(app_fsm, false);
+        return;
+    }
+
+    for(uint8_t i = 0; i < 2U; i++) {
+        dcf77_hw_indicator_set(app_fsm, true);
+        furi_delay_ms(80);
+        dcf77_hw_indicator_set(app_fsm, false);
+        furi_delay_ms(80);
+    }
 }
 
-void dcf77_output_gpio_set(bool status) {
-    furi_hal_gpio_write(OUTPUT_PIN, status);
+void dcf77_output_gpio_init(const AppFSM* app_fsm) {
+    const GpioPinRecord* record = dcf77_output_gpio_record(app_fsm);
+
+    if(record == NULL) {
+        return;
+    }
+
+    furi_hal_gpio_write(record->pin, false);
+    furi_hal_gpio_init(record->pin, GpioModeOutputPushPull, GpioPullNo, GpioSpeedVeryHigh);
 }
 
-void dcf77_output_gpio_deinit(void) {
-    furi_hal_gpio_init(OUTPUT_PIN, GpioModeAnalog, GpioPullNo, GpioSpeedVeryHigh);
+void dcf77_output_gpio_reconfigure(const AppFSM* app_fsm, uint8_t old_pin_number) {
+    const GpioPinRecord* old_record = dcf77_gpio_pin_record(old_pin_number);
+
+    if(old_record != NULL && old_pin_number != app_fsm->gpio_baseband_pin_number) {
+        furi_hal_gpio_write(old_record->pin, false);
+        furi_hal_gpio_init(old_record->pin, GpioModeAnalog, GpioPullNo, GpioSpeedVeryHigh);
+    }
+
+    dcf77_output_gpio_init(app_fsm);
+    dcf77_output_gpio_set(app_fsm, app_fsm->output_state);
+}
+
+void dcf77_output_gpio_set(const AppFSM* app_fsm, bool status) {
+    const GpioPinRecord* record = dcf77_output_gpio_record(app_fsm);
+
+    if(record == NULL) {
+        return;
+    }
+
+    furi_hal_gpio_write(record->pin, status);
+}
+
+void dcf77_output_gpio_deinit(const AppFSM* app_fsm) {
+    const GpioPinRecord* record = dcf77_output_gpio_record(app_fsm);
+
+    if(record == NULL) {
+        return;
+    }
+
+    furi_hal_gpio_write(record->pin, false);
+    furi_hal_gpio_init(record->pin, GpioModeAnalog, GpioPullNo, GpioSpeedVeryHigh);
 }
 
 void dcf77_lf_set_frequency(AppFSM* app_fsm, uint32_t freq) {
@@ -339,8 +465,62 @@ void dcf77_lf_deinit(AppFSM* app_fsm) {
     app_fsm->lf_ready = false;
 }
 
+void dcf77_gpio_rf_apply_settings(AppFSM* app_fsm) {
+    const GpioPinRecord* record = dcf77_gpio_rf_record(app_fsm);
+
+    dcf77_gpio_rf_deinit(app_fsm);
+
+    if(!app_fsm->tx_active || record == NULL || record->pwm_output == FuriHalPwmOutputIdNone) {
+        return;
+    }
+
+    if(app_fsm->output_state) {
+        furi_hal_pwm_start(record->pwm_output, app_fsm->lf_freq, app_fsm->gpio_rf_duty_cycle);
+        app_fsm->gpio_rf_running = true;
+    }
+}
+
+void dcf77_gpio_rf_sync_output(AppFSM* app_fsm) {
+    const GpioPinRecord* record = dcf77_gpio_rf_record(app_fsm);
+
+    if(record == NULL || record->pwm_output == FuriHalPwmOutputIdNone) {
+        app_fsm->gpio_rf_running = false;
+        return;
+    }
+
+    if(app_fsm->output_state) {
+        if(furi_hal_pwm_is_running(record->pwm_output)) {
+            furi_hal_pwm_set_params(record->pwm_output, app_fsm->lf_freq, app_fsm->gpio_rf_duty_cycle);
+        } else {
+            furi_hal_pwm_start(record->pwm_output, app_fsm->lf_freq, app_fsm->gpio_rf_duty_cycle);
+        }
+        app_fsm->gpio_rf_running = true;
+    } else {
+        if(furi_hal_pwm_is_running(record->pwm_output)) {
+            furi_hal_pwm_stop(record->pwm_output);
+        }
+        app_fsm->gpio_rf_running = false;
+    }
+}
+
+void dcf77_gpio_rf_deinit(AppFSM* app_fsm) {
+    const GpioPinRecord* record = dcf77_gpio_rf_record(app_fsm);
+
+    if(record != NULL && record->pwm_output != FuriHalPwmOutputIdNone &&
+       furi_hal_pwm_is_running(record->pwm_output)) {
+        furi_hal_pwm_stop(record->pwm_output);
+    }
+
+    app_fsm->gpio_rf_running = false;
+}
+
 void dcf77_subghz_apply_settings(AppFSM* app_fsm) {
     if(!app_fsm->tx_active) {
+        return;
+    }
+
+    if(dcf77_app_gpio_rf_enabled(app_fsm)) {
+        dcf77_subghz_deinit(app_fsm);
         return;
     }
 
@@ -372,6 +552,7 @@ void dcf77_subghz_apply_settings(AppFSM* app_fsm) {
 void dcf77_subghz_sync_output(AppFSM* app_fsm) {
     if((app_fsm->subghz_signal_mode != SubGhzSignalModeFsk &&
         app_fsm->subghz_signal_mode != SubGhzSignalModeFskFull) ||
+       dcf77_app_gpio_rf_enabled(app_fsm) ||
        !app_fsm->subghz_ready) {
         return;
     }

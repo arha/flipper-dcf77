@@ -31,6 +31,6 @@ bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx);
 void dcf77_subghz_settings_enter_callback(void* ctx, uint32_t index);
 uint32_t dcf77_subghz_freq_input_previous_callback(void* ctx);
 void dcf77_subghz_freq_input_result_callback(void* ctx, int32_t number);
-void dcf77_debug_speaker_change_callback(VariableItem* item);
+bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx);
 
 #endif

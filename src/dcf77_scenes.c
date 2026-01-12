@@ -24,6 +24,11 @@ enum {
 };
 
 enum {
+    Dcf77DebugSettingBaseband,
+    Dcf77DebugSettingRf,
+    Dcf77DebugSettingDutyCycle,
+    Dcf77DebugSettingLed,
+    Dcf77DebugSettingScreen,
     Dcf77DebugSettingSpeaker,
 };
 
@@ -92,6 +97,24 @@ static void dcf77_subghz_settings_sync(AppFSM* app_fsm) {
 }
 
 static void dcf77_debug_settings_sync(AppFSM* app_fsm) {
+    variable_item_set_current_value_index(
+        app_fsm->debug_gpio_baseband_item,
+        dcf77_debug_gpio_baseband_pin_index(app_fsm->gpio_baseband_pin_number));
+    variable_item_set_current_value_text(
+        app_fsm->debug_gpio_baseband_item, app_fsm->gpio_baseband_text);
+    variable_item_set_current_value_index(
+        app_fsm->debug_gpio_rf_item,
+        dcf77_debug_gpio_rf_pin_index(app_fsm->gpio_rf_pin_number));
+    variable_item_set_current_value_text(app_fsm->debug_gpio_rf_item, app_fsm->gpio_rf_text);
+    variable_item_set_current_value_index(
+        app_fsm->debug_gpio_duty_item,
+        dcf77_debug_gpio_rf_duty_index(app_fsm->gpio_rf_duty_cycle));
+    variable_item_set_current_value_text(
+        app_fsm->debug_gpio_duty_item, app_fsm->gpio_rf_duty_text);
+    variable_item_set_current_value_index(app_fsm->debug_led_item, app_fsm->led_color_index);
+    variable_item_set_current_value_text(app_fsm->debug_led_item, app_fsm->led_text);
+    variable_item_set_current_value_index(app_fsm->debug_screen_item, app_fsm->screen_mode);
+    variable_item_set_current_value_text(app_fsm->debug_screen_item, app_fsm->screen_text);
     variable_item_set_current_value_index(app_fsm->debug_speaker_item, app_fsm->speaker_value_index);
     variable_item_set_current_value_text(app_fsm->debug_speaker_item, app_fsm->speaker_text);
     with_view_model(
@@ -105,6 +128,12 @@ static void dcf77_debug_settings_sync(AppFSM* app_fsm) {
 
 static void dcf77_subghz_settings_apply(AppFSM* app_fsm) {
     dcf77_subghz_settings_sync(app_fsm);
+    dcf77_app_apply_rf_settings(app_fsm);
+    dcf77_app_settings_save(app_fsm);
+}
+
+static void dcf77_debug_settings_apply(AppFSM* app_fsm) {
+    dcf77_debug_settings_sync(app_fsm);
     dcf77_app_apply_rf_settings(app_fsm);
     dcf77_app_settings_save(app_fsm);
 }
@@ -217,10 +246,11 @@ void dcf77_app_stop_tx(AppFSM* app_fsm) {
     }
 
     dcf77_timing_stop(app_fsm);
+    dcf77_gpio_rf_deinit(app_fsm);
     dcf77_lf_deinit(app_fsm);
     dcf77_subghz_deinit(app_fsm);
-    dcf77_output_gpio_set(false);
-    dcf77_hw_indicator_set(false);
+    dcf77_output_gpio_set(app_fsm, false);
+    dcf77_hw_indicator_set(app_fsm, false);
     dcf77_app_sound_set(app_fsm, false);
     app_fsm->output_state = false;
     app_fsm->output_dirty = false;
@@ -454,16 +484,129 @@ void dcf77_subghz_freq_input_result_callback(void* ctx, int32_t number) {
     dcf77_app_switch_to_subghz_settings(app_fsm);
 }
 
-void dcf77_debug_speaker_change_callback(VariableItem* item) {
-    AppFSM* app_fsm = variable_item_get_context(item);
-    const uint8_t value_index = variable_item_get_current_value_index(item);
+bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx) {
+    AppFSM* app_fsm = ctx;
+    uint8_t selected;
 
-    dcf77_app_set_speaker_value_index(app_fsm, value_index);
-    variable_item_set_current_value_text(item, app_fsm->speaker_text);
-    if(app_fsm->speaker_value_index == 0) {
-        dcf77_app_sound_set(app_fsm, false);
+    if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
+        return false;
     }
-    dcf77_app_settings_save(app_fsm);
+
+    selected = variable_item_list_get_selected_item_index(app_fsm->debug_settings);
+
+    switch(event->key) {
+    case InputKeyUp:
+        if(selected == 0U) {
+            selected = Dcf77DebugSettingSpeaker;
+        } else {
+            selected--;
+        }
+        variable_item_list_set_selected_item(app_fsm->debug_settings, selected);
+        return true;
+    case InputKeyDown:
+        selected++;
+        if(selected > Dcf77DebugSettingSpeaker) {
+            selected = 0U;
+        }
+        variable_item_list_set_selected_item(app_fsm->debug_settings, selected);
+        return true;
+    case InputKeyLeft:
+        if(selected == Dcf77DebugSettingBaseband) {
+            const uint8_t old_pin = app_fsm->gpio_baseband_pin_number;
+            dcf77_app_set_gpio_baseband_pin(
+                app_fsm,
+                dcf77_debug_gpio_baseband_step(
+                    app_fsm->gpio_baseband_pin_number, -1, app_fsm->gpio_rf_pin_number));
+            dcf77_output_gpio_reconfigure(app_fsm, old_pin);
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingRf) {
+            const uint8_t old_baseband = app_fsm->gpio_baseband_pin_number;
+            dcf77_app_set_gpio_rf_pin(
+                app_fsm, dcf77_debug_gpio_rf_step(app_fsm->gpio_rf_pin_number, -1));
+            if(old_baseband != app_fsm->gpio_baseband_pin_number) {
+                dcf77_output_gpio_reconfigure(app_fsm, old_baseband);
+            }
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingDutyCycle) {
+            dcf77_app_set_gpio_rf_duty_cycle(
+                app_fsm,
+                dcf77_debug_gpio_rf_duty_step(app_fsm->gpio_rf_duty_cycle, -1));
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingLed && app_fsm->led_color_index > 0U) {
+            dcf77_app_set_led_color(app_fsm, (Dcf77LedColor)(app_fsm->led_color_index - 1U));
+            dcf77_debug_settings_apply(app_fsm);
+            dcf77_hw_indicator_blink_preview(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingScreen && app_fsm->screen_mode > 0U) {
+            dcf77_app_set_screen_mode(app_fsm, (Dcf77ScreenMode)(app_fsm->screen_mode - 1U));
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingSpeaker && app_fsm->speaker_value_index > 0U) {
+            dcf77_app_set_speaker_value_index(app_fsm, app_fsm->speaker_value_index - 1U);
+            dcf77_app_sound_set(app_fsm, false);
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        return false;
+    case InputKeyRight:
+        if(selected == Dcf77DebugSettingBaseband) {
+            const uint8_t old_pin = app_fsm->gpio_baseband_pin_number;
+            dcf77_app_set_gpio_baseband_pin(
+                app_fsm,
+                dcf77_debug_gpio_baseband_step(
+                    app_fsm->gpio_baseband_pin_number, 1, app_fsm->gpio_rf_pin_number));
+            dcf77_output_gpio_reconfigure(app_fsm, old_pin);
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingRf) {
+            const uint8_t old_baseband = app_fsm->gpio_baseband_pin_number;
+            dcf77_app_set_gpio_rf_pin(
+                app_fsm, dcf77_debug_gpio_rf_step(app_fsm->gpio_rf_pin_number, 1));
+            if(old_baseband != app_fsm->gpio_baseband_pin_number) {
+                dcf77_output_gpio_reconfigure(app_fsm, old_baseband);
+            }
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingDutyCycle) {
+            dcf77_app_set_gpio_rf_duty_cycle(
+                app_fsm,
+                dcf77_debug_gpio_rf_duty_step(app_fsm->gpio_rf_duty_cycle, 1));
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingLed &&
+           app_fsm->led_color_index + 1U < dcf77_debug_led_color_count()) {
+            dcf77_app_set_led_color(app_fsm, (Dcf77LedColor)(app_fsm->led_color_index + 1U));
+            dcf77_debug_settings_apply(app_fsm);
+            dcf77_hw_indicator_blink_preview(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingScreen &&
+           app_fsm->screen_mode + 1U < dcf77_debug_screen_mode_count()) {
+            dcf77_app_set_screen_mode(app_fsm, (Dcf77ScreenMode)(app_fsm->screen_mode + 1U));
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77DebugSettingSpeaker &&
+           app_fsm->speaker_value_index < dcf77_subghz_note_count()) {
+            dcf77_app_set_speaker_value_index(app_fsm, app_fsm->speaker_value_index + 1U);
+            dcf77_debug_settings_apply(app_fsm);
+            return true;
+        }
+        return false;
+    default:
+        return false;
+    }
 }
 
 void dcf77_about_button_callback(GuiButtonType result, InputType type, void* ctx) {
@@ -610,8 +753,9 @@ void dcf77_tick_callback(void* ctx) {
     if(app_fsm->tx_active && app_fsm->output_dirty) {
         const bool output = app_fsm->output_state;
         app_fsm->output_dirty = false;
-        dcf77_hw_indicator_set(output);
+        dcf77_hw_indicator_set(app_fsm, output);
         dcf77_app_sound_set(app_fsm, app_fsm->speaker_value_index != 0 && output);
+        dcf77_gpio_rf_sync_output(app_fsm);
         dcf77_subghz_sync_output(app_fsm);
     }
 

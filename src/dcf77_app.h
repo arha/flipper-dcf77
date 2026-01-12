@@ -25,9 +25,11 @@
 #include <notification/notification.h>
 #include <notification/notification_messages.h>
 #include <datetime/datetime.h>
+#include <furi_hal_resources.h>
 #include <furi.h>
 
 #include "dcf77_util.h"
+#include "debug_settings.h"
 #include "radio_clock.h"
 #include "radio_clock_pulse.h"
 #include "subghz_settings.h"
@@ -48,7 +50,9 @@
 #define LF_FREQ_MIN 50000U
 #define LF_FREQ_MAX 200000U
 #define LF_FREQ_STEP 2500U
-#define OUTPUT_PIN &gpio_ext_pc3
+#define GPIO_BASEBAND_PIN_DEFAULT 7U
+#define GPIO_RF_PIN_NONE 0U
+#define GPIO_RF_DUTY_CYCLE_DEFAULT 50U
 // #define TIME_ZERO 15
 // #define TIME_ONE 5
 
@@ -110,6 +114,25 @@ typedef enum {
     SubGhzSignalModeFskFull,
 } SubGhzSignalMode;
 
+typedef enum {
+    Dcf77LedColorNone,
+    Dcf77LedColorRed,
+    Dcf77LedColorOrange,
+    Dcf77LedColorGreen,
+    Dcf77LedColorBlue,
+    Dcf77LedColorYellow,
+    Dcf77LedColorCyan,
+    Dcf77LedColorMagenta,
+    Dcf77LedColorWhite,
+    Dcf77LedColorCount,
+} Dcf77LedColor;
+
+typedef enum {
+    Dcf77ScreenModeDebug,
+    Dcf77ScreenModeUser,
+    Dcf77ScreenModeCount,
+} Dcf77ScreenMode;
+
 typedef struct AppFSM {
     uint16_t len;
     KeyCode last_key;
@@ -142,6 +165,7 @@ typedef struct AppFSM {
     bool debug_flag;
     bool lf_ready;
     bool subghz_ready;
+    bool gpio_rf_running;
     volatile bool subghz_async_tx;
     volatile bool subghz_output;
     volatile bool subghz_tone_phase;
@@ -150,6 +174,11 @@ typedef struct AppFSM {
     uint8_t subghz_band_count;
     uint8_t subghz_band_index;
     uint8_t speaker_value_index;
+    uint8_t gpio_baseband_pin_number;
+    uint8_t gpio_rf_pin_number;
+    uint8_t gpio_rf_duty_cycle;
+    uint8_t led_color_index;
+    uint8_t screen_mode;
     uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
     uint32_t subghz_band_ends[DCF77_SUBGHZ_MAX_BANDS];
     uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
@@ -177,6 +206,11 @@ typedef struct AppFSM {
     VariableItem* subghz_band_item;
     VariableItem* subghz_frequency_item;
     VariableItem* subghz_manual_item;
+    VariableItem* debug_gpio_baseband_item;
+    VariableItem* debug_gpio_rf_item;
+    VariableItem* debug_gpio_duty_item;
+    VariableItem* debug_led_item;
+    VariableItem* debug_screen_item;
     VariableItem* debug_speaker_item;
     NotificationApp* notification;
     bool lf_transmit_enabled;
@@ -187,6 +221,11 @@ typedef struct AppFSM {
     char subghz_frequency_text[16];
     char subghz_frequency_step_text[24];
     char subghz_manual_text[16];
+    char gpio_baseband_text[8];
+    char gpio_rf_text[8];
+    char gpio_rf_duty_text[8];
+    char led_text[12];
+    char screen_text[8];
     char speaker_text[16];
 
     uint8_t tx_minute;
@@ -219,5 +258,12 @@ void dcf77_app_set_subghz_frequency(AppFSM* app_fsm, uint32_t freq_hz);
 void dcf77_app_step_subghz_frequency(AppFSM* app_fsm, int8_t direction);
 uint32_t dcf77_app_get_subghz_frequency(const AppFSM* app_fsm);
 void dcf77_app_set_speaker_value_index(AppFSM* app_fsm, uint8_t value_index);
+void dcf77_app_update_debug_texts(AppFSM* app_fsm);
+void dcf77_app_set_gpio_baseband_pin(AppFSM* app_fsm, uint8_t pin_number);
+void dcf77_app_set_gpio_rf_pin(AppFSM* app_fsm, uint8_t pin_number);
+void dcf77_app_set_gpio_rf_duty_cycle(AppFSM* app_fsm, uint8_t duty_cycle);
+void dcf77_app_set_led_color(AppFSM* app_fsm, Dcf77LedColor color);
+void dcf77_app_set_screen_mode(AppFSM* app_fsm, Dcf77ScreenMode mode);
+bool dcf77_app_gpio_rf_enabled(const AppFSM* app_fsm);
 
 #endif
