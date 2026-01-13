@@ -10,6 +10,7 @@
 
 #define RADIO_CLOCK_FRAME_BYTES 8U
 #define RADIO_CLOCK_FRAME_SECONDS 60U
+#define RADIO_CLOCK_MAX_SECOND_SEGMENTS 8U
 
 typedef struct {
     uint16_t year;
@@ -22,14 +23,23 @@ typedef struct {
 } RadioClockProtocolTime;
 
 typedef struct {
+    bool level;
+    uint16_t ticks;
+} RadioClockWaveformSegment;
+
+typedef struct {
+    uint8_t segment_count;
+    RadioClockWaveformSegment segments[RADIO_CLOCK_MAX_SECOND_SEGMENTS];
+} RadioClockSecondWaveform;
+
+typedef struct {
     uint8_t encoded[RADIO_CLOCK_FRAME_BYTES];
     RadioClockPulse pulses[RADIO_CLOCK_FRAME_SECONDS];
+    RadioClockSecondWaveform waveforms[RADIO_CLOCK_FRAME_SECONDS];
 } RadioClockMinuteFrame;
 
 typedef struct {
     void (*prepare_frame)(RadioClockMinuteFrame* frame, const RadioClockProtocolTime* time);
-    uint16_t (*pulse_to_high_ticks)(RadioClockPulse pulse);
-    bool (*starts_low)(RadioClockPulse pulse);
 } RadioClockProtocolOps;
 
 const RadioClockProtocolOps* radio_clock_protocol_get(RadioClockSignal signal);
@@ -39,12 +49,5 @@ void radio_clock_protocol_prepare_frame(
     RadioClockSignal signal,
     RadioClockMinuteFrame* frame,
     const RadioClockProtocolTime* time);
-void radio_clock_protocol_build_high_ticks(
-    RadioClockSignal signal,
-    const RadioClockPulse* pulses,
-    uint16_t* ticks_out,
-    size_t count);
-uint16_t radio_clock_protocol_pulse_to_high_ticks(RadioClockSignal signal, RadioClockPulse pulse);
-bool radio_clock_protocol_starts_low(RadioClockSignal signal, RadioClockPulse pulse);
 
 #endif

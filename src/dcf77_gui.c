@@ -137,7 +137,7 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
             sizeof(buffer),
             "sec %02u pulse %s",
             app_fsm->bit_number,
-            dcf77_logic_get_pulse_label((RadioClockPulse)app_fsm->bit_value));
+            dcf77_logic_get_pulse_label(app_fsm->current_pulse));
         canvas_draw_str_aligned(canvas, 64, 46, AlignCenter, AlignBottom, buffer);
         return;
     }

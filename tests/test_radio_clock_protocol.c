@@ -19,6 +19,16 @@ static char pulse_to_char(RadioClockPulse pulse) {
     }
 }
 
+static uint32_t waveform_total_ticks(const RadioClockSecondWaveform* waveform) {
+    uint32_t total = 0U;
+
+    for(uint8_t i = 0; i < waveform->segment_count; i++) {
+        total += waveform->segments[i].ticks;
+    }
+
+    return total;
+}
+
 static void frame_to_string(const RadioClockPulse* frame, char* out) {
     for(size_t i = 0; i < RADIO_CLOCK_FRAME_SECONDS; i++) {
         out[i] = pulse_to_char(frame[i]);
@@ -47,8 +57,15 @@ static void test_dcf77_protocol_matches_known_frame(void) {
         const RadioClockPulse expected_pulse =
             dcf77_message_get_bit(expected, second) ? RadioClockPulseOne : RadioClockPulseZero;
         assert(frame.pulses[second] == expected_pulse);
+        assert(frame.waveforms[second].segment_count == 2U);
+        assert(frame.waveforms[second].segments[0].level == false);
+        assert(frame.waveforms[second].segments[1].level == true);
+        assert(waveform_total_ticks(&frame.waveforms[second]) == 32768U);
     }
     assert(frame.pulses[59] == RadioClockPulseMarker);
+    assert(frame.waveforms[59].segment_count == 1U);
+    assert(frame.waveforms[59].segments[0].level == true);
+    assert(frame.waveforms[59].segments[0].ticks == 32768U);
 }
 
 static void test_wwvb_protocol_uses_flipper_time_with_safe_aux_flags(void) {
@@ -104,17 +121,72 @@ static void test_wwvb_protocol_generates_safe_aux_frame(void) {
 }
 
 static void test_protocol_pulse_timing_and_phase_rules(void) {
-    assert(radio_clock_protocol_pulse_to_high_ticks(RadioClockSignalDcf77, RadioClockPulseZero) == 29491U);
-    assert(radio_clock_protocol_pulse_to_high_ticks(RadioClockSignalDcf77, RadioClockPulseOne) == 26214U);
-    assert(radio_clock_protocol_pulse_to_high_ticks(RadioClockSignalDcf77, RadioClockPulseMarker) == 32768U);
-    assert(radio_clock_protocol_pulse_to_high_ticks(RadioClockSignalWwvb, RadioClockPulseZero) == 26214U);
-    assert(radio_clock_protocol_pulse_to_high_ticks(RadioClockSignalWwvb, RadioClockPulseOne) == 16384U);
-    assert(radio_clock_protocol_pulse_to_high_ticks(RadioClockSignalWwvb, RadioClockPulseMarker) == 6553U);
+    RadioClockProtocolTime dcf_time = {
+        .year = 2026,
+        .day_of_year = 5,
+        .month = 1,
+        .day = 5,
+        .weekday = 1,
+        .hour = 14,
+        .minute = 30,
+    };
+    RadioClockProtocolTime wwvb_time = {
+        .year = 2001,
+        .day_of_year = 258,
+        .month = 9,
+        .day = 15,
+        .weekday = 6,
+        .hour = 18,
+        .minute = 42,
+    };
+    RadioClockMinuteFrame dcf_frame;
+    RadioClockMinuteFrame wwvb_frame;
 
-    assert(radio_clock_protocol_starts_low(RadioClockSignalDcf77, RadioClockPulseZero) == true);
-    assert(radio_clock_protocol_starts_low(RadioClockSignalDcf77, RadioClockPulseMarker) == false);
-    assert(radio_clock_protocol_starts_low(RadioClockSignalWwvb, RadioClockPulseZero) == true);
-    assert(radio_clock_protocol_starts_low(RadioClockSignalWwvb, RadioClockPulseMarker) == true);
+    radio_clock_protocol_prepare_frame(RadioClockSignalDcf77, &dcf_frame, &dcf_time);
+    radio_clock_protocol_prepare_frame(RadioClockSignalWwvb, &wwvb_frame, &wwvb_time);
+
+    for(uint8_t second = 0; second < RADIO_CLOCK_FRAME_SECONDS; second++) {
+        if(dcf_frame.pulses[second] == RadioClockPulseMarker) {
+            assert(dcf_frame.waveforms[second].segment_count == 1U);
+            assert(dcf_frame.waveforms[second].segments[0].level == true);
+            assert(dcf_frame.waveforms[second].segments[0].ticks == 32768U);
+        } else if(dcf_frame.pulses[second] == RadioClockPulseOne) {
+            assert(dcf_frame.waveforms[second].segment_count == 2U);
+            assert(dcf_frame.waveforms[second].segments[0].level == false);
+            assert(dcf_frame.waveforms[second].segments[0].ticks == 6554U);
+            assert(dcf_frame.waveforms[second].segments[1].level == true);
+            assert(dcf_frame.waveforms[second].segments[1].ticks == 26214U);
+        } else {
+            assert(dcf_frame.waveforms[second].segment_count == 2U);
+            assert(dcf_frame.waveforms[second].segments[0].level == false);
+            assert(dcf_frame.waveforms[second].segments[0].ticks == 3277U);
+            assert(dcf_frame.waveforms[second].segments[1].level == true);
+            assert(dcf_frame.waveforms[second].segments[1].ticks == 29491U);
+        }
+
+        if(wwvb_frame.pulses[second] == RadioClockPulseMarker) {
+            assert(wwvb_frame.waveforms[second].segment_count == 2U);
+            assert(wwvb_frame.waveforms[second].segments[0].level == false);
+            assert(wwvb_frame.waveforms[second].segments[0].ticks == 26215U);
+            assert(wwvb_frame.waveforms[second].segments[1].level == true);
+            assert(wwvb_frame.waveforms[second].segments[1].ticks == 6553U);
+        } else if(wwvb_frame.pulses[second] == RadioClockPulseOne) {
+            assert(wwvb_frame.waveforms[second].segment_count == 2U);
+            assert(wwvb_frame.waveforms[second].segments[0].level == false);
+            assert(wwvb_frame.waveforms[second].segments[0].ticks == 16384U);
+            assert(wwvb_frame.waveforms[second].segments[1].level == true);
+            assert(wwvb_frame.waveforms[second].segments[1].ticks == 16384U);
+        } else {
+            assert(wwvb_frame.waveforms[second].segment_count == 2U);
+            assert(wwvb_frame.waveforms[second].segments[0].level == false);
+            assert(wwvb_frame.waveforms[second].segments[0].ticks == 6554U);
+            assert(wwvb_frame.waveforms[second].segments[1].level == true);
+            assert(wwvb_frame.waveforms[second].segments[1].ticks == 26214U);
+        }
+
+        assert(waveform_total_ticks(&dcf_frame.waveforms[second]) == 32768U);
+        assert(waveform_total_ticks(&wwvb_frame.waveforms[second]) == 32768U);
+    }
 }
 
 int main(void) {

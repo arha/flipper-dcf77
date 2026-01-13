@@ -12,6 +12,58 @@
 #define RADIO_CLOCK_WWVB_ZERO_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 8U) / 10U)
 #define RADIO_CLOCK_WWVB_ONE_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 5U) / 10U)
 #define RADIO_CLOCK_WWVB_MARKER_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 2U) / 10U)
+#define RADIO_CLOCK_DCF77_ZERO_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_DCF77_ZERO_HIGH_TICKS)
+#define RADIO_CLOCK_DCF77_ONE_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_DCF77_ONE_HIGH_TICKS)
+#define RADIO_CLOCK_WWVB_ZERO_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_WWVB_ZERO_HIGH_TICKS)
+#define RADIO_CLOCK_WWVB_ONE_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_WWVB_ONE_HIGH_TICKS)
+#define RADIO_CLOCK_WWVB_MARKER_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_WWVB_MARKER_HIGH_TICKS)
+
+static void radio_clock_waveform_clear(RadioClockMinuteFrame* frame, uint8_t second) {
+    frame->waveforms[second].segment_count = 0U;
+    for(uint8_t i = 0; i < RADIO_CLOCK_MAX_SECOND_SEGMENTS; i++) {
+        frame->waveforms[second].segments[i].level = false;
+        frame->waveforms[second].segments[i].ticks = 0U;
+    }
+}
+
+static void radio_clock_waveform_add_segment(
+    RadioClockMinuteFrame* frame,
+    uint8_t second,
+    bool level,
+    uint16_t ticks) {
+    const uint8_t index = frame->waveforms[second].segment_count;
+
+    if(index >= RADIO_CLOCK_MAX_SECOND_SEGMENTS || ticks == 0U) {
+        return;
+    }
+
+    frame->waveforms[second].segments[index].level = level;
+    frame->waveforms[second].segments[index].ticks = ticks;
+    frame->waveforms[second].segment_count++;
+}
+
+static void radio_clock_waveform_set_ook_symbol(
+    RadioClockMinuteFrame* frame,
+    uint8_t second,
+    RadioClockPulse pulse,
+    uint16_t low_ticks) {
+    radio_clock_waveform_clear(frame, second);
+    frame->pulses[second] = pulse;
+
+    if(low_ticks == 0U) {
+        radio_clock_waveform_add_segment(frame, second, true, RADIO_CLOCK_FULL_SECOND_TICKS);
+        return;
+    }
+
+    if(low_ticks >= RADIO_CLOCK_FULL_SECOND_TICKS) {
+        radio_clock_waveform_add_segment(frame, second, false, RADIO_CLOCK_FULL_SECOND_TICKS);
+        return;
+    }
+
+    radio_clock_waveform_add_segment(frame, second, false, low_ticks);
+    radio_clock_waveform_add_segment(
+        frame, second, true, (uint16_t)(RADIO_CLOCK_FULL_SECOND_TICKS - low_ticks));
+}
 
 static uint8_t radio_clock_days_in_month(uint16_t year, uint8_t month) {
     static const uint8_t days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -89,11 +141,15 @@ static void dcf77_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockPr
 
     for(uint8_t second = 0; second < RADIO_CLOCK_FRAME_SECONDS; second++) {
         if(second == 59U) {
-            frame->pulses[second] = RadioClockPulseMarker;
+            radio_clock_waveform_set_ook_symbol(frame, second, RadioClockPulseMarker, 0U);
         } else {
-            frame->pulses[second] =
+            radio_clock_waveform_set_ook_symbol(
+                frame,
+                second,
                 dcf77_message_get_bit(frame->encoded, second) ? RadioClockPulseOne :
-                                                               RadioClockPulseZero;
+                                                                RadioClockPulseZero,
+                dcf77_message_get_bit(frame->encoded, second) ? RADIO_CLOCK_DCF77_ONE_LOW_TICKS :
+                                                                RADIO_CLOCK_DCF77_ZERO_LOW_TICKS);
         }
     }
 }
@@ -112,51 +168,32 @@ static void wwvb_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockPro
         wwvb_is_leap_year(time->year),
         false,
         0);
-}
 
-static uint16_t dcf77_pulse_to_high_ticks(RadioClockPulse pulse) {
-    switch(pulse) {
-    case RadioClockPulseOne:
-        return RADIO_CLOCK_DCF77_ONE_HIGH_TICKS;
-    case RadioClockPulseMarker:
-        return RADIO_CLOCK_FULL_SECOND_TICKS;
-    case RadioClockPulseZero:
-    default:
-        return RADIO_CLOCK_DCF77_ZERO_HIGH_TICKS;
+    for(uint8_t second = 0; second < RADIO_CLOCK_FRAME_SECONDS; second++) {
+        switch(frame->pulses[second]) {
+        case RadioClockPulseOne:
+            radio_clock_waveform_set_ook_symbol(
+                frame, second, RadioClockPulseOne, RADIO_CLOCK_WWVB_ONE_LOW_TICKS);
+            break;
+        case RadioClockPulseMarker:
+            radio_clock_waveform_set_ook_symbol(
+                frame, second, RadioClockPulseMarker, RADIO_CLOCK_WWVB_MARKER_LOW_TICKS);
+            break;
+        case RadioClockPulseZero:
+        default:
+            radio_clock_waveform_set_ook_symbol(
+                frame, second, RadioClockPulseZero, RADIO_CLOCK_WWVB_ZERO_LOW_TICKS);
+            break;
+        }
     }
-}
-
-static uint16_t wwvb_pulse_to_high_ticks(RadioClockPulse pulse) {
-    switch(pulse) {
-    case RadioClockPulseOne:
-        return RADIO_CLOCK_WWVB_ONE_HIGH_TICKS;
-    case RadioClockPulseMarker:
-        return RADIO_CLOCK_WWVB_MARKER_HIGH_TICKS;
-    case RadioClockPulseZero:
-    default:
-        return RADIO_CLOCK_WWVB_ZERO_HIGH_TICKS;
-    }
-}
-
-static bool dcf77_starts_low(RadioClockPulse pulse) {
-    return pulse != RadioClockPulseMarker;
-}
-
-static bool wwvb_starts_low(RadioClockPulse pulse) {
-    (void)pulse;
-    return true;
 }
 
 static const RadioClockProtocolOps radio_clock_protocol_dcf77 = {
     .prepare_frame = dcf77_prepare_frame,
-    .pulse_to_high_ticks = dcf77_pulse_to_high_ticks,
-    .starts_low = dcf77_starts_low,
 };
 
 static const RadioClockProtocolOps radio_clock_protocol_wwvb = {
     .prepare_frame = wwvb_prepare_frame,
-    .pulse_to_high_ticks = wwvb_pulse_to_high_ticks,
-    .starts_low = wwvb_starts_low,
 };
 
 const RadioClockProtocolOps* radio_clock_protocol_get(RadioClockSignal signal) {
@@ -190,24 +227,4 @@ void radio_clock_protocol_prepare_frame(
     RadioClockMinuteFrame* frame,
     const RadioClockProtocolTime* time) {
     radio_clock_protocol_get(signal)->prepare_frame(frame, time);
-}
-
-void radio_clock_protocol_build_high_ticks(
-    RadioClockSignal signal,
-    const RadioClockPulse* pulses,
-    uint16_t* ticks_out,
-    size_t count) {
-    const RadioClockProtocolOps* protocol = radio_clock_protocol_get(signal);
-
-    for(size_t second = 0; second < count; second++) {
-        ticks_out[second] = protocol->pulse_to_high_ticks(pulses[second]);
-    }
-}
-
-uint16_t radio_clock_protocol_pulse_to_high_ticks(RadioClockSignal signal, RadioClockPulse pulse) {
-    return radio_clock_protocol_get(signal)->pulse_to_high_ticks(pulse);
-}
-
-bool radio_clock_protocol_starts_low(RadioClockSignal signal, RadioClockPulse pulse) {
-    return radio_clock_protocol_get(signal)->starts_low(pulse);
 }

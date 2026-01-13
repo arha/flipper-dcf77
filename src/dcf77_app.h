@@ -32,6 +32,7 @@
 #include "debug_settings.h"
 #include "radio_clock.h"
 #include "radio_clock_pulse.h"
+#include "radio_clock_protocol.h"
 #include "subghz_settings.h"
 
 // the TAG is used for displaying a relevant prefix in logs. update it.
@@ -143,19 +144,20 @@ typedef struct AppFSM {
     uint32_t signal_freqs[RadioClockSignalCount];
 
     uint8_t bit_number; // 0 - 59
-    uint8_t bit_value;  // 0 or 1 for actual bits, 2 for end-of-minute marker
+    uint8_t bit_value;  // 0/1/marker for byte-debug screens
+    RadioClockPulse current_pulse;
     volatile bool output_state;
     volatile bool output_dirty;
     uint8_t dcf77_message[8];
     uint8_t next_message[8];
     RadioClockPulse pulse_frame[DCF77_SECONDS_PER_MINUTE];
     RadioClockPulse next_pulse_frame[DCF77_SECONDS_PER_MINUTE];
-    uint16_t second_high_ticks[DCF77_SECONDS_PER_MINUTE];
-    uint16_t next_second_high_ticks[DCF77_SECONDS_PER_MINUTE];
+    RadioClockSecondWaveform waveform_frame[DCF77_SECONDS_PER_MINUTE];
+    RadioClockSecondWaveform next_waveform_frame[DCF77_SECONDS_PER_MINUTE];
     DateTime current_minute_dt;
     DateTime next_minute_dt;
     volatile uint8_t scheduler_second;
-    volatile bool scheduler_low_phase;
+    volatile uint8_t scheduler_segment;
     volatile bool scheduler_ready;
     volatile bool scheduler_synced;
     volatile bool startup_marker_wrap_pending;

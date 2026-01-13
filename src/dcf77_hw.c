@@ -204,6 +204,42 @@ static void dcf77_prepare_following_minute(AppFSM* app_fsm) {
     dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
 }
 
+static const RadioClockSecondWaveform* dcf77_scheduler_current_waveform(const AppFSM* app_fsm) {
+    return &app_fsm->waveform_frame[app_fsm->scheduler_second];
+}
+
+static uint32_t dcf77_scheduler_segment_boundary_ticks(
+    const RadioClockSecondWaveform* waveform,
+    uint8_t segment_index) {
+    uint32_t ticks = 0U;
+
+    for(uint8_t i = 0; i <= segment_index && i < waveform->segment_count; i++) {
+        ticks += waveform->segments[i].ticks;
+    }
+
+    return ticks;
+}
+
+static void dcf77_scheduler_apply_current_segment(AppFSM* app_fsm) {
+    const RadioClockSecondWaveform* waveform = dcf77_scheduler_current_waveform(app_fsm);
+
+    if(waveform->segment_count == 0U) {
+        dcf77_apply_output(app_fsm, true);
+        dcf77_scheduler_disable_compare();
+        return;
+    }
+
+    dcf77_apply_output(app_fsm, waveform->segments[app_fsm->scheduler_segment].level);
+
+    if((uint8_t)(app_fsm->scheduler_segment + 1U) >= waveform->segment_count) {
+        dcf77_scheduler_disable_compare();
+        return;
+    }
+
+    dcf77_scheduler_set_compare_ticks(
+        dcf77_scheduler_segment_boundary_ticks(waveform, app_fsm->scheduler_segment));
+}
+
 static void dcf77_scheduler_advance_second(AppFSM* app_fsm) {
     app_fsm->scheduler_second++;
     if(app_fsm->scheduler_second >= DCF77_SECONDS_PER_MINUTE) {
@@ -216,22 +252,15 @@ static void dcf77_scheduler_advance_second(AppFSM* app_fsm) {
         }
     }
 
+    app_fsm->scheduler_segment = 0;
     app_fsm->bit_number = app_fsm->scheduler_second;
-    app_fsm->bit_value = app_fsm->pulse_frame[app_fsm->bit_number];
+    app_fsm->current_pulse = app_fsm->pulse_frame[app_fsm->bit_number];
+    app_fsm->bit_value = (uint8_t)app_fsm->current_pulse;
 }
 
 static void dcf77_scheduler_apply_current_second(AppFSM* app_fsm) {
-    if(!radio_clock_protocol_starts_low(
-           app_fsm->current_signal, app_fsm->pulse_frame[app_fsm->scheduler_second])) {
-        dcf77_apply_output(app_fsm, true);
-        dcf77_scheduler_disable_compare();
-        return;
-    }
-
-    const uint32_t low_ticks =
-        DCF77_FULL_SECOND_TICKS - dcf77_logic_get_current_high_ticks(app_fsm);
-    dcf77_apply_output(app_fsm, false);
-    dcf77_scheduler_set_compare_ticks(low_ticks);
+    app_fsm->scheduler_segment = 0;
+    dcf77_scheduler_apply_current_segment(app_fsm);
 }
 
 static void dcf77_timing_isr(void* context) {
@@ -251,7 +280,14 @@ static void dcf77_timing_isr(void* context) {
     }
 
     if(compare_match) {
-        dcf77_apply_output(app_fsm, true);
+        const RadioClockSecondWaveform* waveform = dcf77_scheduler_current_waveform(app_fsm);
+
+        if((uint8_t)(app_fsm->scheduler_segment + 1U) < waveform->segment_count) {
+            app_fsm->scheduler_segment++;
+            dcf77_scheduler_apply_current_segment(app_fsm);
+        } else {
+            dcf77_scheduler_disable_compare();
+        }
     }
 
     if(autoreload_match) {
