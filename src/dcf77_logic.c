@@ -14,6 +14,18 @@ static void dcf77_logic_set_current_pulse(AppFSM* app_fsm, uint8_t second) {
     app_fsm->bit_value = (uint8_t)app_fsm->current_pulse;
 }
 
+static void dcf77_logic_get_protocol_datetime(
+    RadioClockSignal signal,
+    const DateTime* dt,
+    DateTime* protocol_dt) {
+    *protocol_dt = *dt;
+
+    if(signal == RadioClockSignalMsf) {
+        const uint32_t protocol_timestamp = datetime_datetime_to_timestamp(protocol_dt) + 60U;
+        datetime_timestamp_to_datetime(protocol_timestamp, protocol_dt);
+    }
+}
+
 static void dcf77_logic_set_tx_fields(AppFSM* app_fsm, const DateTime* dt) {
     app_fsm->tx_hour = dt->hour;
     app_fsm->tx_minute = dt->minute;
@@ -42,10 +54,12 @@ static void dcf77_logic_prepare_frame_buffers(
     uint8_t* message_out,
     RadioClockPulse* pulses_out,
     RadioClockSecondWaveform* waveforms_out) {
+    DateTime protocol_dt;
     RadioClockProtocolTime protocol_time;
     RadioClockMinuteFrame frame;
 
-    dcf77_logic_build_protocol_time(dt, &protocol_time);
+    dcf77_logic_get_protocol_datetime(app_fsm->current_signal, dt, &protocol_dt);
+    dcf77_logic_build_protocol_time(&protocol_dt, &protocol_time);
     radio_clock_protocol_prepare_frame(app_fsm->current_signal, &frame, &protocol_time);
     memcpy(message_out, frame.encoded, sizeof(frame.encoded));
     memcpy(pulses_out, frame.pulses, sizeof(frame.pulses));
@@ -78,7 +92,9 @@ void dcf77_logic_prepare_minute(AppFSM* app_fsm, const DateTime* dt, bool as_nex
         app_fsm->current_minute_dt = *dt;
         dcf77_logic_prepare_frame_buffers(
             app_fsm, dt, app_fsm->dcf77_message, app_fsm->pulse_frame, app_fsm->waveform_frame);
-        dcf77_logic_set_tx_fields(app_fsm, dt);
+        DateTime protocol_dt;
+        dcf77_logic_get_protocol_datetime(app_fsm->current_signal, dt, &protocol_dt);
+        dcf77_logic_set_tx_fields(app_fsm, &protocol_dt);
     }
 }
 
@@ -87,7 +103,9 @@ void dcf77_logic_activate_next_minute(AppFSM* app_fsm) {
     memcpy(app_fsm->pulse_frame, app_fsm->next_pulse_frame, sizeof(app_fsm->pulse_frame));
     memcpy(app_fsm->waveform_frame, app_fsm->next_waveform_frame, sizeof(app_fsm->waveform_frame));
     app_fsm->current_minute_dt = app_fsm->next_minute_dt;
-    dcf77_logic_set_tx_fields(app_fsm, &app_fsm->current_minute_dt);
+    DateTime protocol_dt;
+    dcf77_logic_get_protocol_datetime(app_fsm->current_signal, &app_fsm->current_minute_dt, &protocol_dt);
+    dcf77_logic_set_tx_fields(app_fsm, &protocol_dt);
 }
 
 void dcf77_logic_sync_start(AppFSM* app_fsm, uint8_t start_second, bool startup_marker_wrap_pending) {

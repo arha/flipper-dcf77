@@ -111,7 +111,8 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
         return;
     }
 
-    if(app_fsm->current_signal == RadioClockSignalWwvb) {
+    if(app_fsm->current_signal == RadioClockSignalWwvb ||
+       app_fsm->current_signal == RadioClockSignalMsf) {
         canvas_draw_frame(canvas, 0, 0, 128, 64);
         canvas_set_font(canvas, FontSecondary);
         snprintf(

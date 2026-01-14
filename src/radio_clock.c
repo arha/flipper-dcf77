@@ -31,7 +31,7 @@ static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount]
     [RadioClockSignalMsf] = {
         .label = "MSF",
         .default_freq = 60000U,
-        .tx_supported = false,
+        .tx_supported = true,
     },
     [RadioClockSignalRbu] = {
         .label = "RBU",
@@ -44,6 +44,7 @@ static const RadioClockSignal radio_clock_visible_signals[] = {
     RadioClockSignalTest,
     RadioClockSignalDcf77,
     RadioClockSignalWwvb,
+    RadioClockSignalMsf,
 };
 
 const RadioClockSignalInfo* radio_clock_signal_get_info(RadioClockSignal signal) {
