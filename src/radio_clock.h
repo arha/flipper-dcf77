@@ -13,6 +13,7 @@ typedef enum {
     RadioClockSignalJjy,
     RadioClockSignalMsf,
     RadioClockSignalRbu,
+    RadioClockSignalHbg,
     RadioClockSignalCount,
 } RadioClockSignal;
 

@@ -148,12 +148,16 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
         .minute = 42,
     };
     RadioClockMinuteFrame dcf_frame;
+    RadioClockMinuteFrame hbg_frame;
     RadioClockMinuteFrame msf_frame;
     RadioClockMinuteFrame wwvb_frame;
 
     radio_clock_protocol_prepare_frame(RadioClockSignalDcf77, &dcf_frame, &dcf_time);
+    radio_clock_protocol_prepare_frame(RadioClockSignalHbg, &hbg_frame, &dcf_time);
     radio_clock_protocol_prepare_frame(RadioClockSignalMsf, &msf_frame, &dcf_time);
     radio_clock_protocol_prepare_frame(RadioClockSignalWwvb, &wwvb_frame, &wwvb_time);
+
+    assert(memcmp(hbg_frame.encoded, dcf_frame.encoded, sizeof(hbg_frame.encoded)) == 0);
 
     for(uint8_t second = 0; second < RADIO_CLOCK_FRAME_SECONDS; second++) {
         if(dcf_frame.pulses[second] == RadioClockPulseMarker) {
@@ -195,9 +199,16 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
         }
 
         assert(waveform_total_ticks(&dcf_frame.waveforms[second]) == 32768U);
+        assert(waveform_total_ticks(&hbg_frame.waveforms[second]) == 32768U);
         assert(waveform_total_ticks(&wwvb_frame.waveforms[second]) == 32768U);
         assert(waveform_total_ticks(&msf_frame.waveforms[second]) == 32768U);
     }
+
+    assert(hbg_frame.waveforms[0].segment_count == 4U);
+    assert(hbg_frame.waveforms[0].segments[0].level == false);
+    assert(hbg_frame.waveforms[0].segments[1].level == true);
+    assert(hbg_frame.waveforms[0].segments[2].level == false);
+    assert(hbg_frame.waveforms[0].segments[3].level == true);
 
     assert(msf_frame.pulses[0] == RadioClockPulseMarker);
     assert(msf_frame.waveforms[0].segment_count == 2U);
@@ -224,11 +235,43 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
     assert(msf_frame.waveforms[54].segments[1].ticks == 26214U);
 }
 
+static void test_hbg_start_pulse_variants(void) {
+    RadioClockProtocolTime hour_time = {
+        .year = 2026,
+        .day_of_year = 38,
+        .month = 2,
+        .day = 7,
+        .weekday = 6,
+        .hour = 7,
+        .minute = 0,
+    };
+    RadioClockProtocolTime noon_time = {
+        .year = 2026,
+        .day_of_year = 39,
+        .month = 2,
+        .day = 8,
+        .weekday = 0,
+        .hour = 12,
+        .minute = 0,
+    };
+    RadioClockMinuteFrame hour_frame;
+    RadioClockMinuteFrame noon_frame;
+
+    radio_clock_protocol_prepare_frame(RadioClockSignalHbg, &hour_frame, &hour_time);
+    radio_clock_protocol_prepare_frame(RadioClockSignalHbg, &noon_frame, &noon_time);
+
+    assert(hour_frame.waveforms[0].segment_count == 6U);
+    assert(noon_frame.waveforms[0].segment_count == 8U);
+    assert(waveform_total_ticks(&hour_frame.waveforms[0]) == 32768U);
+    assert(waveform_total_ticks(&noon_frame.waveforms[0]) == 32768U);
+}
+
 int main(void) {
     test_dcf77_protocol_matches_known_frame();
     test_wwvb_protocol_uses_flipper_time_with_safe_aux_flags();
     test_wwvb_protocol_generates_safe_aux_frame();
     test_protocol_pulse_timing_and_phase_rules();
+    test_hbg_start_pulse_variants();
     puts("test_radio_clock_protocol: OK");
     return 0;
 }

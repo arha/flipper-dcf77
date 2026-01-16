@@ -38,11 +38,17 @@ static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount]
         .default_freq = 67500U,
         .tx_supported = false,
     },
+    [RadioClockSignalHbg] = {
+        .label = "HBG",
+        .default_freq = 75000U,
+        .tx_supported = true,
+    },
 };
 
 static const RadioClockSignal radio_clock_visible_signals[] = {
     RadioClockSignalTest,
     RadioClockSignalDcf77,
+    RadioClockSignalHbg,
     RadioClockSignalWwvb,
     RadioClockSignalMsf,
 };

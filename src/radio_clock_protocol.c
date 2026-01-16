@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "dcf77_util.h"
+#include "hbg_util.h"
 #include "msf_util.h"
 #include "wwvb_util.h"
 
@@ -186,6 +187,11 @@ static void dcf77_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockPr
     }
 }
 
+static void hbg_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockProtocolTime* time) {
+    dcf77_prepare_frame(frame, time);
+    hbg_build_start_waveform(&frame->waveforms[0], hbg_get_start_pattern(time->hour, time->minute));
+}
+
 static void wwvb_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockProtocolTime* time) {
     memset(frame, 0, sizeof(*frame));
 
@@ -258,8 +264,14 @@ static const RadioClockProtocolOps radio_clock_protocol_msf = {
     .prepare_frame = msf_prepare_frame,
 };
 
+static const RadioClockProtocolOps radio_clock_protocol_hbg = {
+    .prepare_frame = hbg_prepare_frame,
+};
+
 const RadioClockProtocolOps* radio_clock_protocol_get(RadioClockSignal signal) {
     switch(signal) {
+    case RadioClockSignalHbg:
+        return &radio_clock_protocol_hbg;
     case RadioClockSignalMsf:
         return &radio_clock_protocol_msf;
     case RadioClockSignalWwvb:
