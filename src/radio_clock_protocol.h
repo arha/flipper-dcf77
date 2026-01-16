@@ -22,12 +22,12 @@ typedef struct {
     uint8_t minute;
 } RadioClockProtocolTime;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
     bool level;
     uint16_t ticks;
 } RadioClockWaveformSegment;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
     uint8_t segment_count;
     RadioClockWaveformSegment segments[RADIO_CLOCK_MAX_SECOND_SEGMENTS];
 } RadioClockSecondWaveform;

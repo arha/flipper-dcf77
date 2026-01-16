@@ -8,6 +8,8 @@ const char* dcf77_logic_get_pulse_label(RadioClockPulse pulse) {
     return radio_clock_protocol_pulse_label(pulse);
 }
 
+static RadioClockMinuteFrame dcf77_protocol_frame_scratch;
+
 static void dcf77_logic_set_current_pulse(AppFSM* app_fsm, uint8_t second) {
     app_fsm->bit_number = second;
     app_fsm->current_pulse = app_fsm->pulse_frame[second];
@@ -56,14 +58,14 @@ static void dcf77_logic_prepare_frame_buffers(
     RadioClockSecondWaveform* waveforms_out) {
     DateTime protocol_dt;
     RadioClockProtocolTime protocol_time;
-    RadioClockMinuteFrame frame;
+    RadioClockMinuteFrame* frame = &dcf77_protocol_frame_scratch;
 
     dcf77_logic_get_protocol_datetime(app_fsm->current_signal, dt, &protocol_dt);
     dcf77_logic_build_protocol_time(&protocol_dt, &protocol_time);
-    radio_clock_protocol_prepare_frame(app_fsm->current_signal, &frame, &protocol_time);
-    memcpy(message_out, frame.encoded, sizeof(frame.encoded));
-    memcpy(pulses_out, frame.pulses, sizeof(frame.pulses));
-    memcpy(waveforms_out, frame.waveforms, sizeof(frame.waveforms));
+    radio_clock_protocol_prepare_frame(app_fsm->current_signal, frame, &protocol_time);
+    memcpy(message_out, frame->encoded, sizeof(frame->encoded));
+    memcpy(pulses_out, frame->pulses, sizeof(frame->pulses));
+    memcpy(waveforms_out, frame->waveforms, sizeof(frame->waveforms));
 }
 
 void dcf77_logic_init(AppFSM* app_fsm) {
