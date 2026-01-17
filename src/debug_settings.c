@@ -21,19 +21,35 @@ static const uint8_t dcf77_debug_gpio_rf_pins[] = {
 
 static const char* const dcf77_debug_led_color_labels[] = {
     "None",
-    "Red",
     "Orange",
-    "Green",
-    "Blue",
+    "Red",
     "Yellow",
+    "Green",
     "Cyan",
+    "Blue",
     "Magenta",
+    "Dark Violet",
+    "Pink",
     "White",
+};
+
+static const uint8_t dcf77_debug_led_color_values[] = {
+    0U,
+    2U,
+    1U,
+    5U,
+    3U,
+    6U,
+    4U,
+    7U,
+    9U,
+    10U,
+    8U,
 };
 
 static const char* const dcf77_debug_screen_mode_labels[] = {
     "Debug",
-    "User",
+    "Basic",
 };
 
 size_t dcf77_debug_gpio_baseband_pin_count(void) {
@@ -185,6 +201,24 @@ uint8_t dcf77_debug_gpio_rf_duty_step(uint8_t duty_cycle, int8_t direction) {
 
 size_t dcf77_debug_led_color_count(void) {
     return sizeof(dcf77_debug_led_color_labels) / sizeof(dcf77_debug_led_color_labels[0]);
+}
+
+uint8_t dcf77_debug_led_color_at(size_t index) {
+    if(index >= dcf77_debug_led_color_count()) {
+        index = 0;
+    }
+
+    return dcf77_debug_led_color_values[index];
+}
+
+size_t dcf77_debug_led_color_index(uint8_t color) {
+    for(size_t i = 0; i < dcf77_debug_led_color_count(); i++) {
+        if(dcf77_debug_led_color_values[i] == color) {
+            return i;
+        }
+    }
+
+    return 2U;
 }
 
 const char* dcf77_debug_led_color_label(uint8_t index) {

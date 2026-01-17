@@ -5,6 +5,8 @@
 
 static const char about_text[] =
     "Designed by arha, to debug my radioclocks that never seem to work just right.\n"
+    "Supports DCF77, WWVB, MSF and the defunct HBG.\n"
+    "Extended TX on subghz like this app does is probably not healthy; the frequency will also start drifting.\n"
     "https://github.com/arha\n";
 
 static const char egg_text[] = "wow you found an easter egg\n";

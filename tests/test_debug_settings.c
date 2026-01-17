@@ -11,6 +11,7 @@ static void test_baseband_pin_options_and_formatting(void) {
 
     assert(dcf77_debug_gpio_baseband_pin_count() == 9U);
     assert(dcf77_debug_gpio_baseband_default_pin() == 7U);
+    assert(dcf77_debug_gpio_baseband_pin_at(0U) == 0U);
     assert(dcf77_debug_gpio_baseband_pin_valid(0U));
     assert(dcf77_debug_gpio_baseband_pin_valid(7U));
     assert(dcf77_debug_gpio_baseband_pin_valid(16U));
@@ -63,15 +64,24 @@ static void test_gpio_rf_duty_helpers(void) {
 }
 
 static void test_led_and_screen_labels(void) {
-    assert(dcf77_debug_led_color_count() == 9U);
+    assert(dcf77_debug_led_color_count() == 11U);
     assert(strcmp(dcf77_debug_led_color_label(0U), "None") == 0);
-    assert(strcmp(dcf77_debug_led_color_label(1U), "Red") == 0);
-    assert(strcmp(dcf77_debug_led_color_label(2U), "Orange") == 0);
-    assert(strcmp(dcf77_debug_led_color_label(8U), "White") == 0);
+    assert(strcmp(dcf77_debug_led_color_label(1U), "Orange") == 0);
+    assert(strcmp(dcf77_debug_led_color_label(2U), "Red") == 0);
+    assert(strcmp(dcf77_debug_led_color_label(8U), "Dark Violet") == 0);
+    assert(strcmp(dcf77_debug_led_color_label(9U), "Pink") == 0);
+    assert(strcmp(dcf77_debug_led_color_label(10U), "White") == 0);
+    assert(dcf77_debug_led_color_at(0U) == 0U);
+    assert(dcf77_debug_led_color_at(1U) == 2U);
+    assert(dcf77_debug_led_color_at(2U) == 1U);
+    assert(dcf77_debug_led_color_at(10U) == 8U);
+    assert(dcf77_debug_led_color_index(1U) == 2U);
+    assert(dcf77_debug_led_color_index(2U) == 1U);
+    assert(dcf77_debug_led_color_index(8U) == 10U);
 
     assert(dcf77_debug_screen_mode_count() == 2U);
     assert(strcmp(dcf77_debug_screen_mode_label(0U), "Debug") == 0);
-    assert(strcmp(dcf77_debug_screen_mode_label(1U), "User") == 0);
+    assert(strcmp(dcf77_debug_screen_mode_label(1U), "Basic") == 0);
 }
 
 int main(void) {

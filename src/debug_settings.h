@@ -27,6 +27,8 @@ uint8_t dcf77_debug_gpio_rf_duty_normalize(uint8_t duty_cycle);
 uint8_t dcf77_debug_gpio_rf_duty_step(uint8_t duty_cycle, int8_t direction);
 
 size_t dcf77_debug_led_color_count(void);
+uint8_t dcf77_debug_led_color_at(size_t index);
+size_t dcf77_debug_led_color_index(uint8_t color);
 const char* dcf77_debug_led_color_label(uint8_t index);
 
 size_t dcf77_debug_screen_mode_count(void);

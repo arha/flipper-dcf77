@@ -125,6 +125,8 @@ typedef enum {
     Dcf77LedColorCyan,
     Dcf77LedColorMagenta,
     Dcf77LedColorWhite,
+    Dcf77LedColorDarkViolet,
+    Dcf77LedColorPink,
     Dcf77LedColorCount,
 } Dcf77LedColor;
 

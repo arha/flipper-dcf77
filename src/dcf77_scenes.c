@@ -111,7 +111,8 @@ static void dcf77_debug_settings_sync(AppFSM* app_fsm) {
         dcf77_debug_gpio_rf_duty_index(app_fsm->gpio_rf_duty_cycle));
     variable_item_set_current_value_text(
         app_fsm->debug_gpio_duty_item, app_fsm->gpio_rf_duty_text);
-    variable_item_set_current_value_index(app_fsm->debug_led_item, app_fsm->led_color_index);
+    variable_item_set_current_value_index(
+        app_fsm->debug_led_item, dcf77_debug_led_color_index(app_fsm->led_color_index));
     variable_item_set_current_value_text(app_fsm->debug_led_item, app_fsm->led_text);
     variable_item_set_current_value_index(app_fsm->debug_screen_item, app_fsm->screen_mode);
     variable_item_set_current_value_text(app_fsm->debug_screen_item, app_fsm->screen_text);
@@ -538,8 +539,15 @@ bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx) {
             dcf77_debug_settings_apply(app_fsm);
             return true;
         }
-        if(selected == Dcf77DebugSettingLed && app_fsm->led_color_index > 0U) {
-            dcf77_app_set_led_color(app_fsm, (Dcf77LedColor)(app_fsm->led_color_index - 1U));
+        if(selected == Dcf77DebugSettingLed) {
+            const size_t led_index = dcf77_debug_led_color_index(app_fsm->led_color_index);
+
+            if(led_index == 0U) {
+                return true;
+            }
+
+            dcf77_app_set_led_color(
+                app_fsm, (Dcf77LedColor)dcf77_debug_led_color_at(led_index - 1U));
             dcf77_debug_settings_apply(app_fsm);
             dcf77_hw_indicator_blink_preview(app_fsm);
             return true;
@@ -584,9 +592,15 @@ bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx) {
             dcf77_debug_settings_apply(app_fsm);
             return true;
         }
-        if(selected == Dcf77DebugSettingLed &&
-           app_fsm->led_color_index + 1U < dcf77_debug_led_color_count()) {
-            dcf77_app_set_led_color(app_fsm, (Dcf77LedColor)(app_fsm->led_color_index + 1U));
+        if(selected == Dcf77DebugSettingLed) {
+            const size_t led_index = dcf77_debug_led_color_index(app_fsm->led_color_index);
+
+            if(led_index + 1U >= dcf77_debug_led_color_count()) {
+                return true;
+            }
+
+            dcf77_app_set_led_color(
+                app_fsm, (Dcf77LedColor)dcf77_debug_led_color_at(led_index + 1U));
             dcf77_debug_settings_apply(app_fsm);
             dcf77_hw_indicator_blink_preview(app_fsm);
             return true;

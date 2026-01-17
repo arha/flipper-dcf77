@@ -62,6 +62,14 @@ static void dcf77_hw_led_color_levels(
         *red = 0xFFU;
         *blue = 0xFFU;
         break;
+    case Dcf77LedColorDarkViolet:
+        *red = 0x60U;
+        *blue = 0xC0U;
+        break;
+    case Dcf77LedColorPink:
+        *red = 0xFFU;
+        *blue = 0x90U;
+        break;
     case Dcf77LedColorWhite:
         *red = 0xFFU;
         *green = 0xFFU;

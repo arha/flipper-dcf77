@@ -48,9 +48,10 @@ static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount]
 static const RadioClockSignal radio_clock_visible_signals[] = {
     RadioClockSignalTest,
     RadioClockSignalDcf77,
-    RadioClockSignalHbg,
     RadioClockSignalWwvb,
     RadioClockSignalMsf,
+    /* Keep HBG last in the selector. */
+    RadioClockSignalHbg,
 };
 
 const RadioClockSignalInfo* radio_clock_signal_get_info(RadioClockSignal signal) {
