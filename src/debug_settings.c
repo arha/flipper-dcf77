@@ -3,8 +3,6 @@
 #include <stdio.h>
 
 static const uint8_t dcf77_debug_gpio_baseband_pins[] = {
-    0U,
-    2U,
     3U,
     4U,
     5U,
@@ -12,6 +10,7 @@ static const uint8_t dcf77_debug_gpio_baseband_pins[] = {
     7U,
     15U,
     16U,
+    0U,
 };
 
 static const uint8_t dcf77_debug_gpio_rf_pins[] = {
@@ -27,8 +26,8 @@ static const char* const dcf77_debug_led_color_labels[] = {
     "Green",
     "Cyan",
     "Blue",
+    "Violet",
     "Magenta",
-    "Dark Violet",
     "Pink",
     "White",
 };
@@ -41,8 +40,8 @@ static const uint8_t dcf77_debug_led_color_values[] = {
     3U,
     6U,
     4U,
-    7U,
     9U,
+    7U,
     10U,
     8U,
 };
@@ -101,8 +100,9 @@ uint8_t dcf77_debug_gpio_baseband_step(uint8_t current_pin, int8_t direction, ui
             break;
         }
 
-        if(dcf77_debug_gpio_baseband_pin_at(index) != reserved_pin) {
-            return dcf77_debug_gpio_baseband_pin_at(index);
+        const uint8_t candidate_pin = dcf77_debug_gpio_baseband_pin_at(index);
+        if(candidate_pin == 0U || candidate_pin != reserved_pin) {
+            return candidate_pin;
         }
     }
 

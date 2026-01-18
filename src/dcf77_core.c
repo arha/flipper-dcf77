@@ -304,7 +304,7 @@ void dcf77_app_update_debug_texts(AppFSM* app_fsm) {
         app_fsm->led_text,
         sizeof(app_fsm->led_text),
         "%s",
-        dcf77_debug_led_color_label(app_fsm->led_color_index));
+        dcf77_debug_led_color_label(dcf77_debug_led_color_index(app_fsm->led_color_index)));
     snprintf(
         app_fsm->screen_text,
         sizeof(app_fsm->screen_text),
