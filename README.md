@@ -7,7 +7,7 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 
 # Features
 
-* LF frequency configurable 60-200khz
+* LF frequency configurable 20-200khz
 * LF test mode signal
 * Supports multiple time signals: DCF77, WWVB and MSF
 * Improved debugging: configurable GPIO output: baseband & RF, LED, buzzer and of course - SubGHZ output
