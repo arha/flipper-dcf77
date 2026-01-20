@@ -4,6 +4,7 @@
 
 #include "dcf77_util.h"
 #include "hbg_util.h"
+#include "jjy_util.h"
 #include "msf_util.h"
 #include "wwvb_util.h"
 
@@ -14,6 +15,9 @@
 #define RADIO_CLOCK_WWVB_ZERO_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 8U) / 10U)
 #define RADIO_CLOCK_WWVB_ONE_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 5U) / 10U)
 #define RADIO_CLOCK_WWVB_MARKER_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 2U) / 10U)
+#define RADIO_CLOCK_JJY_ZERO_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 8U) / 10U)
+#define RADIO_CLOCK_JJY_ONE_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 5U) / 10U)
+#define RADIO_CLOCK_JJY_MARKER_HIGH_TICKS ((RADIO_CLOCK_LPTIM_HZ * 2U) / 10U)
 #define RADIO_CLOCK_DCF77_ZERO_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_DCF77_ZERO_HIGH_TICKS)
 #define RADIO_CLOCK_DCF77_ONE_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_DCF77_ONE_HIGH_TICKS)
 #define RADIO_CLOCK_MSF_MARKER_LOW_TICKS ((RADIO_CLOCK_LPTIM_HZ * 5U) / 10U)
@@ -73,6 +77,29 @@ static void radio_clock_waveform_set_ook_symbol(
     radio_clock_waveform_add_segment(frame, second, false, low_ticks);
     radio_clock_waveform_add_segment(
         frame, second, true, (uint16_t)(RADIO_CLOCK_FULL_SECOND_TICKS - low_ticks));
+}
+
+static void radio_clock_waveform_set_positive_symbol(
+    RadioClockMinuteFrame* frame,
+    uint8_t second,
+    RadioClockPulse pulse,
+    uint16_t high_ticks) {
+    radio_clock_waveform_clear(frame, second);
+    frame->pulses[second] = pulse;
+
+    if(high_ticks == 0U) {
+        radio_clock_waveform_add_segment(frame, second, false, RADIO_CLOCK_FULL_SECOND_TICKS);
+        return;
+    }
+
+    if(high_ticks >= RADIO_CLOCK_FULL_SECOND_TICKS) {
+        radio_clock_waveform_add_segment(frame, second, true, RADIO_CLOCK_FULL_SECOND_TICKS);
+        return;
+    }
+
+    radio_clock_waveform_add_segment(frame, second, true, high_ticks);
+    radio_clock_waveform_add_segment(
+        frame, second, false, (uint16_t)(RADIO_CLOCK_FULL_SECOND_TICKS - high_ticks));
 }
 
 static RadioClockPulse radio_clock_msf_symbol(bool bit_a, bool bit_b) {
@@ -252,6 +279,40 @@ static void msf_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockProt
     }
 }
 
+static void jjy_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockProtocolTime* time) {
+    memset(frame, 0, sizeof(*frame));
+
+    set_jjy_timecode(
+        frame->pulses,
+        time->minute,
+        time->hour,
+        time->day_of_year,
+        (uint8_t)(time->year % 100U),
+        (uint8_t)(time->weekday % 7U),
+        false,
+        false,
+        false,
+        false);
+
+    for(uint8_t second = 0; second < RADIO_CLOCK_FRAME_SECONDS; second++) {
+        switch(frame->pulses[second]) {
+        case RadioClockPulseOne:
+            radio_clock_waveform_set_positive_symbol(
+                frame, second, RadioClockPulseOne, RADIO_CLOCK_JJY_ONE_HIGH_TICKS);
+            break;
+        case RadioClockPulseMarker:
+            radio_clock_waveform_set_positive_symbol(
+                frame, second, RadioClockPulseMarker, RADIO_CLOCK_JJY_MARKER_HIGH_TICKS);
+            break;
+        case RadioClockPulseZero:
+        default:
+            radio_clock_waveform_set_positive_symbol(
+                frame, second, RadioClockPulseZero, RADIO_CLOCK_JJY_ZERO_HIGH_TICKS);
+            break;
+        }
+    }
+}
+
 static const RadioClockProtocolOps radio_clock_protocol_dcf77 = {
     .prepare_frame = dcf77_prepare_frame,
 };
@@ -264,6 +325,10 @@ static const RadioClockProtocolOps radio_clock_protocol_msf = {
     .prepare_frame = msf_prepare_frame,
 };
 
+static const RadioClockProtocolOps radio_clock_protocol_jjy = {
+    .prepare_frame = jjy_prepare_frame,
+};
+
 static const RadioClockProtocolOps radio_clock_protocol_hbg = {
     .prepare_frame = hbg_prepare_frame,
 };
@@ -272,6 +337,8 @@ const RadioClockProtocolOps* radio_clock_protocol_get(RadioClockSignal signal) {
     switch(signal) {
     case RadioClockSignalHbg:
         return &radio_clock_protocol_hbg;
+    case RadioClockSignalJjy:
+        return &radio_clock_protocol_jjy;
     case RadioClockSignalMsf:
         return &radio_clock_protocol_msf;
     case RadioClockSignalWwvb:

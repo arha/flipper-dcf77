@@ -149,11 +149,13 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
     };
     RadioClockMinuteFrame dcf_frame;
     RadioClockMinuteFrame hbg_frame;
+    RadioClockMinuteFrame jjy_frame;
     RadioClockMinuteFrame msf_frame;
     RadioClockMinuteFrame wwvb_frame;
 
     radio_clock_protocol_prepare_frame(RadioClockSignalDcf77, &dcf_frame, &dcf_time);
     radio_clock_protocol_prepare_frame(RadioClockSignalHbg, &hbg_frame, &dcf_time);
+    radio_clock_protocol_prepare_frame(RadioClockSignalJjy, &jjy_frame, &wwvb_time);
     radio_clock_protocol_prepare_frame(RadioClockSignalMsf, &msf_frame, &dcf_time);
     radio_clock_protocol_prepare_frame(RadioClockSignalWwvb, &wwvb_frame, &wwvb_time);
 
@@ -200,9 +202,31 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
 
         assert(waveform_total_ticks(&dcf_frame.waveforms[second]) == 32768U);
         assert(waveform_total_ticks(&hbg_frame.waveforms[second]) == 32768U);
+        assert(waveform_total_ticks(&jjy_frame.waveforms[second]) == 32768U);
         assert(waveform_total_ticks(&wwvb_frame.waveforms[second]) == 32768U);
         assert(waveform_total_ticks(&msf_frame.waveforms[second]) == 32768U);
     }
+
+    assert(jjy_frame.pulses[0] == RadioClockPulseMarker);
+    assert(jjy_frame.waveforms[0].segment_count == 2U);
+    assert(jjy_frame.waveforms[0].segments[0].level == true);
+    assert(jjy_frame.waveforms[0].segments[0].ticks == 6553U);
+    assert(jjy_frame.waveforms[0].segments[1].level == false);
+    assert(jjy_frame.waveforms[0].segments[1].ticks == 26215U);
+
+    assert(jjy_frame.pulses[1] == RadioClockPulseOne);
+    assert(jjy_frame.waveforms[1].segment_count == 2U);
+    assert(jjy_frame.waveforms[1].segments[0].level == true);
+    assert(jjy_frame.waveforms[1].segments[0].ticks == 16384U);
+    assert(jjy_frame.waveforms[1].segments[1].level == false);
+    assert(jjy_frame.waveforms[1].segments[1].ticks == 16384U);
+
+    assert(jjy_frame.pulses[3] == RadioClockPulseZero);
+    assert(jjy_frame.waveforms[3].segment_count == 2U);
+    assert(jjy_frame.waveforms[3].segments[0].level == true);
+    assert(jjy_frame.waveforms[3].segments[0].ticks == 26214U);
+    assert(jjy_frame.waveforms[3].segments[1].level == false);
+    assert(jjy_frame.waveforms[3].segments[1].ticks == 6554U);
 
     assert(hbg_frame.waveforms[0].segment_count == 4U);
     assert(hbg_frame.waveforms[0].segments[0].level == false);
