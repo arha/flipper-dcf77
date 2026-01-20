@@ -26,7 +26,7 @@ static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount]
     [RadioClockSignalJjy] = {
         .label = "JJY",
         .default_freq = 60000U,
-        .tx_supported = false,
+        .tx_supported = true,
     },
     [RadioClockSignalMsf] = {
         .label = "MSF",
@@ -50,6 +50,7 @@ static const RadioClockSignal radio_clock_visible_signals[] = {
     RadioClockSignalDcf77,
     RadioClockSignalWwvb,
     RadioClockSignalMsf,
+    RadioClockSignalJjy,
     /* Keep HBG last in the selector. */
     RadioClockSignalHbg,
 };
