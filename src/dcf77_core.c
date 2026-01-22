@@ -854,10 +854,12 @@ uint8_t dcf77_app_get_lf_freq_index(uint32_t freq) {
     }
 
     if(freq >= LF_FREQ_MAX) {
-        return (LF_FREQ_MAX - LF_FREQ_MIN) / LF_FREQ_STEP;
+        return DCF77_LF_FREQ_ITEM_VALUES - 1U;
     }
 
-    return (freq - LF_FREQ_MIN) / LF_FREQ_STEP;
+    /* The LF row is stepped by the custom input callback; keep a mid-range index so
+       the stock widget continues to show both arrows for all non-edge frequencies. */
+    return DCF77_LF_FREQ_ITEM_VALUES / 2U;
 }
 
 void dcf77_app_update_lf_freq_text(AppFSM* app_fsm) {

@@ -253,7 +253,7 @@ void dcf77_gui_init(AppFSM* app_fsm) {
     app_fsm->lf_freq_item = variable_item_list_add(
         app_fsm->lf_settings,
         "kHz",
-        ((LF_FREQ_MAX - LF_FREQ_MIN) / LF_FREQ_STEP) + 1,
+        DCF77_LF_FREQ_ITEM_VALUES,
         dcf77_lf_frequency_change_callback,
         app_fsm);
     variable_item_set_current_value_index(
