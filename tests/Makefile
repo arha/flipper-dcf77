@@ -34,8 +34,8 @@ test_set_bpc_message: test_set_bpc_message.c ../src/bpc_util.c ../src/bpc_util.h
 test_hbg_util: test_hbg_util.c ../src/hbg_util.c ../src/hbg_util.h ../src/radio_clock_protocol.h ../src/radio_clock_pulse.h ../src/radio_clock.h
 	$(CC) $(CFLAGS) -o $@ test_hbg_util.c ../src/hbg_util.c
 
-test_radio_clock_protocol: test_radio_clock_protocol.c ../src/radio_clock_protocol.c ../src/radio_clock_protocol.h ../src/dcf77_util.c ../src/dcf77_util.h ../src/hbg_util.c ../src/hbg_util.h ../src/jjy_util.c ../src/jjy_util.h ../src/msf_util.c ../src/msf_util.h ../src/wwvb_util.c ../src/wwvb_util.h ../src/radio_clock.h ../src/radio_clock_pulse.h
-	$(CC) $(CFLAGS) -o $@ test_radio_clock_protocol.c ../src/radio_clock_protocol.c ../src/dcf77_util.c ../src/hbg_util.c ../src/jjy_util.c ../src/msf_util.c ../src/wwvb_util.c
+test_radio_clock_protocol: test_radio_clock_protocol.c ../src/radio_clock_protocol.c ../src/radio_clock_protocol.h ../src/bpc_util.c ../src/bpc_util.h ../src/dcf77_util.c ../src/dcf77_util.h ../src/hbg_util.c ../src/hbg_util.h ../src/jjy_util.c ../src/jjy_util.h ../src/msf_util.c ../src/msf_util.h ../src/wwvb_util.c ../src/wwvb_util.h ../src/radio_clock.h ../src/radio_clock_pulse.h
+	$(CC) $(CFLAGS) -o $@ test_radio_clock_protocol.c ../src/radio_clock_protocol.c ../src/bpc_util.c ../src/dcf77_util.c ../src/hbg_util.c ../src/jjy_util.c ../src/msf_util.c ../src/wwvb_util.c
 
 test_subghz_settings: test_subghz_settings.c ../src/subghz_settings.c ../src/subghz_settings.h
 	$(CC) $(CFLAGS) -o $@ test_subghz_settings.c ../src/subghz_settings.c

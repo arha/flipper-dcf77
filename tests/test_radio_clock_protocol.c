@@ -21,6 +21,14 @@ static char pulse_to_char(RadioClockPulse pulse) {
         return 'c';
     case RadioClockPulseMsfA1B1:
         return 'd';
+    case RadioClockPulsePair00:
+        return '0';
+    case RadioClockPulsePair01:
+        return '1';
+    case RadioClockPulsePair10:
+        return '2';
+    case RadioClockPulsePair11:
+        return '3';
     case RadioClockPulseZero:
     default:
         return '0';
@@ -148,12 +156,14 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
         .minute = 42,
     };
     RadioClockMinuteFrame dcf_frame;
+    RadioClockMinuteFrame bpc_frame;
     RadioClockMinuteFrame hbg_frame;
     RadioClockMinuteFrame jjy_frame;
     RadioClockMinuteFrame msf_frame;
     RadioClockMinuteFrame wwvb_frame;
 
     radio_clock_protocol_prepare_frame(RadioClockSignalDcf77, &dcf_frame, &dcf_time);
+    radio_clock_protocol_prepare_frame(RadioClockSignalBpc, &bpc_frame, &wwvb_time);
     radio_clock_protocol_prepare_frame(RadioClockSignalHbg, &hbg_frame, &dcf_time);
     radio_clock_protocol_prepare_frame(RadioClockSignalJjy, &jjy_frame, &wwvb_time);
     radio_clock_protocol_prepare_frame(RadioClockSignalMsf, &msf_frame, &dcf_time);
@@ -201,6 +211,7 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
         }
 
         assert(waveform_total_ticks(&dcf_frame.waveforms[second]) == 32768U);
+        assert(waveform_total_ticks(&bpc_frame.waveforms[second]) == 32768U);
         assert(waveform_total_ticks(&hbg_frame.waveforms[second]) == 32768U);
         assert(waveform_total_ticks(&jjy_frame.waveforms[second]) == 32768U);
         assert(waveform_total_ticks(&wwvb_frame.waveforms[second]) == 32768U);
@@ -227,6 +238,29 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
     assert(jjy_frame.waveforms[3].segments[0].ticks == 26214U);
     assert(jjy_frame.waveforms[3].segments[1].level == false);
     assert(jjy_frame.waveforms[3].segments[1].ticks == 6554U);
+
+    assert(bpc_frame.pulses[0] == RadioClockPulseMarker);
+    assert(bpc_frame.pulses[1] == RadioClockPulsePair00);
+    assert(bpc_frame.pulses[20] == RadioClockPulseMarker);
+    assert(bpc_frame.pulses[21] == RadioClockPulsePair01);
+    assert(bpc_frame.pulses[40] == RadioClockPulseMarker);
+    assert(bpc_frame.pulses[41] == RadioClockPulsePair10);
+
+    assert(bpc_frame.waveforms[0].segment_count == 1U);
+    assert(bpc_frame.waveforms[0].segments[0].level == true);
+    assert(bpc_frame.waveforms[0].segments[0].ticks == 32768U);
+
+    assert(bpc_frame.waveforms[1].segment_count == 2U);
+    assert(bpc_frame.waveforms[1].segments[0].level == false);
+    assert(bpc_frame.waveforms[1].segments[0].ticks == 3277U);
+    assert(bpc_frame.waveforms[1].segments[1].level == true);
+    assert(bpc_frame.waveforms[1].segments[1].ticks == 29491U);
+
+    assert(bpc_frame.waveforms[41].segment_count == 2U);
+    assert(bpc_frame.waveforms[41].segments[0].level == false);
+    assert(bpc_frame.waveforms[41].segments[0].ticks == 9830U);
+    assert(bpc_frame.waveforms[41].segments[1].level == true);
+    assert(bpc_frame.waveforms[41].segments[1].ticks == 22938U);
 
     assert(hbg_frame.waveforms[0].segment_count == 4U);
     assert(hbg_frame.waveforms[0].segments[0].level == false);
