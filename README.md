@@ -27,4 +27,4 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 
 * configurable simulated data (encoding the time `25:69` is possible)
 * simulate it just as a timezone offset (for changing clocks around your house according to your country's choice of DST madness)
-* Test it on citizen stuff: DCF77 ☑, WWVB ☑, MSF ☑, JJY ☑, HBG ☑, BPC ☐. ALS162 is going to be tricky with its phase modulation. RBU might work
+* Test it on citizen stuff: DCF77 ☑, WWVB ☑, MSF ☑, JJY ☑, BPC ☑, HBG ☑. ALS162 is going to be tricky with its phase modulation. RBU might work
