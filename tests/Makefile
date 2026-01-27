@@ -3,14 +3,15 @@ CFLAGS ?= -std=c11 -Wall -Wextra -Werror -I../src
 
 .PHONY: all clean test
 
-all: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
+all: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
 
-test: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
+test: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
 	./test_set_dcf_message
 	./test_set_msf_message
 	./test_set_wwvb_message
 	./test_set_jjy_message
 	./test_set_bpc_message
+	./test_set_bsf_message
 	./test_hbg_util
 	./test_radio_clock_protocol
 	./test_subghz_settings
@@ -31,6 +32,9 @@ test_set_jjy_message: test_set_jjy_message.c ../src/jjy_util.c ../src/jjy_util.h
 test_set_bpc_message: test_set_bpc_message.c ../src/bpc_util.c ../src/bpc_util.h ../src/radio_clock_pulse.h
 	$(CC) $(CFLAGS) -o $@ test_set_bpc_message.c ../src/bpc_util.c
 
+test_set_bsf_message: test_set_bsf_message.c ../src/bsf_util.c ../src/bsf_util.h ../src/radio_clock_pulse.h
+	$(CC) $(CFLAGS) -o $@ test_set_bsf_message.c ../src/bsf_util.c
+
 test_hbg_util: test_hbg_util.c ../src/hbg_util.c ../src/hbg_util.h ../src/radio_clock_protocol.h ../src/radio_clock_pulse.h ../src/radio_clock.h
 	$(CC) $(CFLAGS) -o $@ test_hbg_util.c ../src/hbg_util.c
 
@@ -44,4 +48,4 @@ test_debug_settings: test_debug_settings.c ../src/debug_settings.c ../src/debug_
 	$(CC) $(CFLAGS) -o $@ test_debug_settings.c ../src/debug_settings.c
 
 clean:
-	rm -f test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
+	rm -f test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
