@@ -43,6 +43,11 @@ static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount]
         .default_freq = 75000U,
         .tx_supported = true,
     },
+    [RadioClockSignalBsf] = {
+        .label = "BSF",
+        .default_freq = 77500U,
+        .tx_supported = false,
+    },
 };
 
 static const RadioClockSignal radio_clock_visible_signals[] = {
