@@ -5,7 +5,7 @@
 
 static const char about_text[] =
     "Designed by arha, to debug my radioclocks that never seem to work just right.\n"
-    "Supports DCF77, WWVB, MSF and the defunct HBG.\n"
+    "Supports DCF77, WWVB, MSF, JJY, BPC, BSF and the defunct HBG.\n"
     "Extended TX on subghz like this app does is probably not healthy; the frequency will also start drifting.\n"
     "https://github.com/arha\n";
 
@@ -116,7 +116,8 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
     if(app_fsm->current_signal == RadioClockSignalWwvb ||
        app_fsm->current_signal == RadioClockSignalMsf ||
        app_fsm->current_signal == RadioClockSignalJjy ||
-       app_fsm->current_signal == RadioClockSignalBpc) {
+       app_fsm->current_signal == RadioClockSignalBpc ||
+       app_fsm->current_signal == RadioClockSignalBsf) {
         canvas_draw_frame(canvas, 0, 0, 128, 64);
         canvas_set_font(canvas, FontSecondary);
         snprintf(

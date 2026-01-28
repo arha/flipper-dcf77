@@ -46,7 +46,7 @@ static const RadioClockSignalInfo radio_clock_signal_info[RadioClockSignalCount]
     [RadioClockSignalBsf] = {
         .label = "BSF",
         .default_freq = 77500U,
-        .tx_supported = false,
+        .tx_supported = true,
     },
 };
 
@@ -57,6 +57,7 @@ static const RadioClockSignal radio_clock_visible_signals[] = {
     RadioClockSignalMsf,
     RadioClockSignalJjy,
     RadioClockSignalBpc,
+    RadioClockSignalBsf,
     /* Keep HBG last in the selector. */
     RadioClockSignalHbg,
 };
