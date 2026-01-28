@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "bsf_util.h"
 #include "bpc_util.h"
 #include "dcf77_util.h"
 #include "hbg_util.h"
@@ -27,6 +28,10 @@
 #define RADIO_CLOCK_BPC_01_LOW_TICKS (((RADIO_CLOCK_LPTIM_HZ * 2U) + 5U) / 10U)
 #define RADIO_CLOCK_BPC_10_LOW_TICKS (((RADIO_CLOCK_LPTIM_HZ * 3U) + 5U) / 10U)
 #define RADIO_CLOCK_BPC_11_LOW_TICKS (((RADIO_CLOCK_LPTIM_HZ * 4U) + 5U) / 10U)
+#define RADIO_CLOCK_BSF_00_LOW_TICKS (((RADIO_CLOCK_LPTIM_HZ * 2U) + 5U) / 10U)
+#define RADIO_CLOCK_BSF_01_LOW_TICKS (((RADIO_CLOCK_LPTIM_HZ * 4U) + 5U) / 10U)
+#define RADIO_CLOCK_BSF_11_LOW_TICKS (((RADIO_CLOCK_LPTIM_HZ * 6U) + 5U) / 10U)
+#define RADIO_CLOCK_BSF_10_LOW_TICKS (((RADIO_CLOCK_LPTIM_HZ * 8U) + 5U) / 10U)
 #define RADIO_CLOCK_WWVB_ZERO_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_WWVB_ZERO_HIGH_TICKS)
 #define RADIO_CLOCK_WWVB_ONE_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_WWVB_ONE_HIGH_TICKS)
 #define RADIO_CLOCK_WWVB_MARKER_LOW_TICKS (RADIO_CLOCK_FULL_SECOND_TICKS - RADIO_CLOCK_WWVB_MARKER_HIGH_TICKS)
@@ -356,6 +361,46 @@ static void bpc_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockProt
     }
 }
 
+static void bsf_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockProtocolTime* time) {
+    memset(frame, 0, sizeof(*frame));
+
+    set_bsf_timecode(
+        frame->pulses,
+        time->minute,
+        time->hour,
+        time->day,
+        time->month,
+        (uint8_t)(time->year % 100U),
+        (uint8_t)(time->weekday % 7U),
+        false,
+        false);
+
+    for(uint8_t second = 0; second < RADIO_CLOCK_FRAME_SECONDS; second++) {
+        switch(frame->pulses[second]) {
+        case RadioClockPulsePair01:
+            radio_clock_waveform_set_ook_symbol(
+                frame, second, RadioClockPulsePair01, RADIO_CLOCK_BSF_01_LOW_TICKS);
+            break;
+        case RadioClockPulsePair10:
+            radio_clock_waveform_set_ook_symbol(
+                frame, second, RadioClockPulsePair10, RADIO_CLOCK_BSF_10_LOW_TICKS);
+            break;
+        case RadioClockPulsePair11:
+            radio_clock_waveform_set_ook_symbol(
+                frame, second, RadioClockPulsePair11, RADIO_CLOCK_BSF_11_LOW_TICKS);
+            break;
+        case RadioClockPulseMarker:
+            radio_clock_waveform_set_ook_symbol(frame, second, RadioClockPulseMarker, 0U);
+            break;
+        case RadioClockPulsePair00:
+        default:
+            radio_clock_waveform_set_ook_symbol(
+                frame, second, RadioClockPulsePair00, RADIO_CLOCK_BSF_00_LOW_TICKS);
+            break;
+        }
+    }
+}
+
 static const RadioClockProtocolOps radio_clock_protocol_dcf77 = {
     .prepare_frame = dcf77_prepare_frame,
 };
@@ -372,6 +417,10 @@ static const RadioClockProtocolOps radio_clock_protocol_bpc = {
     .prepare_frame = bpc_prepare_frame,
 };
 
+static const RadioClockProtocolOps radio_clock_protocol_bsf = {
+    .prepare_frame = bsf_prepare_frame,
+};
+
 static const RadioClockProtocolOps radio_clock_protocol_jjy = {
     .prepare_frame = jjy_prepare_frame,
 };
@@ -384,6 +433,8 @@ const RadioClockProtocolOps* radio_clock_protocol_get(RadioClockSignal signal) {
     switch(signal) {
     case RadioClockSignalHbg:
         return &radio_clock_protocol_hbg;
+    case RadioClockSignalBsf:
+        return &radio_clock_protocol_bsf;
     case RadioClockSignalBpc:
         return &radio_clock_protocol_bpc;
     case RadioClockSignalJjy:
