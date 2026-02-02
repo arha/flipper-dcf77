@@ -252,10 +252,17 @@ static void test_protocol_pulse_timing_and_phase_rules(void) {
     assert(jjy_frame.waveforms[3].segments[1].ticks == 6554U);
 
     assert(bsf_frame.pulses[39] == RadioClockPulseMarker);
+    assert(bsf_frame.pulses[0] == RadioClockPulsePair00);
     assert(bsf_frame.pulses[40] == RadioClockPulsePair01);
     assert(bsf_frame.pulses[46] == RadioClockPulsePair10);
     assert(bsf_frame.pulses[47] == RadioClockPulsePair11);
     assert(bsf_frame.pulses[59] == RadioClockPulseMarker);
+
+    assert(bsf_frame.waveforms[0].segment_count == 2U);
+    assert(bsf_frame.waveforms[0].segments[0].level == false);
+    assert(bsf_frame.waveforms[0].segments[0].ticks == 6554U);
+    assert(bsf_frame.waveforms[0].segments[1].level == true);
+    assert(bsf_frame.waveforms[0].segments[1].ticks == 26214U);
 
     assert(bsf_frame.waveforms[39].segment_count == 1U);
     assert(bsf_frame.waveforms[39].segments[0].level == true);

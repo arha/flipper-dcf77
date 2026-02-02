@@ -34,6 +34,12 @@ static uint8_t bpc_pulse_to_digit(RadioClockPulse pulse) {
     }
 }
 
+static void bpc_fill_frame(RadioClockPulse* frame, RadioClockPulse pulse) {
+    for(size_t i = 0; i < BPC_FRAME_SECONDS; i++) {
+        frame[i] = pulse;
+    }
+}
+
 static void bpc_set_symbol(RadioClockPulse* frame, uint8_t second, RadioClockPulse pulse) {
     frame[second] = pulse;
 }
@@ -116,7 +122,7 @@ void set_bpc_timecode(
     uint8_t month,
     uint8_t year_since_2000,
     uint8_t weekday) {
-    memset(dest, RadioClockPulsePair00, sizeof(RadioClockPulse) * BPC_FRAME_SECONDS);
+    bpc_fill_frame(dest, RadioClockPulsePair00);
 
     bpc_set_block(dest, 0U, 0U, minute, hour, day, month, year_since_2000, weekday);
     bpc_set_block(dest, 20U, 1U, minute, hour, day, month, year_since_2000, weekday);

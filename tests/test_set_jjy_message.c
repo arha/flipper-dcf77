@@ -121,10 +121,24 @@ static void test_reserved_and_leap_bits_follow_safe_defaults(void) {
     assert(frame[58] == RadioClockPulseZero);
 }
 
+static void test_format_b_uses_call_sign_block_at_15_and_45(void) {
+    RadioClockPulse frame[JJY_FRAME_SECONDS];
+    char actual[JJY_FRAME_SECONDS + 1];
+
+    set_jjy_timecode(frame, 15, 17, 162, 16, 5, false, false, false, false);
+    frame_to_string(frame, actual);
+    assert(strcmp(actual + 40, "000010110M000000000M") == 0);
+
+    set_jjy_timecode(frame, 45, 17, 162, 16, 5, false, false, false, false);
+    frame_to_string(frame, actual);
+    assert(strcmp(actual + 40, "000010110M000000000M") == 0);
+}
+
 int main(void) {
     test_nict_layout_vector_2026_04_13_1234();
     test_yesterday_today_tomorrow_dates_encode_requested_days();
     test_reserved_and_leap_bits_follow_safe_defaults();
+    test_format_b_uses_call_sign_block_at_15_and_45();
     puts("test_set_jjy_message: OK");
     return 0;
 }

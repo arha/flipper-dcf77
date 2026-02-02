@@ -75,7 +75,7 @@ static void test_taiwan_example_2009_09_28_0916(void) {
     frame_to_string(frame, actual);
 
     /* Taiwan LF time-signal project example: 09:16 AM, Monday, 2009/09/28. */
-    assert(strcmp(actual + 39, "M1100102320121010300M") == 0);
+    assert(strcmp(actual, "000000000000000000000000000000000000000M1100102320121010300M") == 0);
 }
 
 static void test_time_and_date_fields_decode_back(void) {
@@ -83,7 +83,7 @@ static void test_time_and_date_fields_decode_back(void) {
 
     set_bsf_timecode(frame, 58, 23, 31, 12, 26, 6, true, false);
 
-    assert(frame[0] == RadioClockPulseMarker);
+    assert(frame[0] == RadioClockPulsePair00);
     assert(frame[39] == RadioClockPulseMarker);
     assert(frame[59] == RadioClockPulseMarker);
     assert(frame[40] == RadioClockPulsePair01);

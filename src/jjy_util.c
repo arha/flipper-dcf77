@@ -36,6 +36,37 @@ static bool jjy_parity(const RadioClockPulse* frame, const uint8_t* positions, s
     return parity;
 }
 
+static bool jjy_is_format_b_minute(uint8_t minute) {
+    return minute == 15U || minute == 45U;
+}
+
+static void jjy_apply_format_b_final_block(RadioClockPulse* dest) {
+    /* Official JJY format-B final block keeps second 40 at 0, sends JJY at
+       seconds 41-48, keeps P5/P0 markers, then uses the interruption bits. */
+    static const RadioClockPulse call_sign_pattern[] = {
+        RadioClockPulseZero,
+        RadioClockPulseZero,
+        RadioClockPulseZero,
+        RadioClockPulseOne,
+        RadioClockPulseZero,
+        RadioClockPulseOne,
+        RadioClockPulseOne,
+        RadioClockPulseZero,
+    };
+
+    dest[40] = RadioClockPulseZero;
+    for(size_t i = 0; i < sizeof(call_sign_pattern) / sizeof(call_sign_pattern[0]); i++) {
+        dest[41U + i] = call_sign_pattern[i];
+    }
+    dest[49] = RadioClockPulseMarker;
+
+    /* Safe default: no planned interruption and no extra flags. */
+    for(uint8_t second = 50U; second <= 58U; second++) {
+        dest[second] = RadioClockPulseZero;
+    }
+    dest[59] = RadioClockPulseMarker;
+}
+
 void set_jjy_timecode(
     RadioClockPulse* dest,
     uint8_t minute,
@@ -100,7 +131,11 @@ void set_jjy_timecode(
     jjy_set_symbol(dest, 53, leap_second_pending ? RadioClockPulseOne : RadioClockPulseZero);
     jjy_set_symbol(dest, 54, leap_second_insert ? RadioClockPulseOne : RadioClockPulseZero);
 
-    /* Format B call-sign minutes are left as the regular block until needed. */
+    if(jjy_is_format_b_minute(minute)) {
+        jjy_apply_format_b_final_block(dest);
+        return;
+    }
+
     jjy_set_symbol(dest, 55, RadioClockPulseZero);
     jjy_set_symbol(dest, 56, RadioClockPulseZero);
     jjy_set_symbol(dest, 57, RadioClockPulseZero);

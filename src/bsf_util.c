@@ -27,6 +27,12 @@ static uint8_t bsf_pulse_to_digit(RadioClockPulse pulse) {
     }
 }
 
+static void bsf_fill_frame(RadioClockPulse* frame, RadioClockPulse pulse) {
+    for(size_t i = 0; i < BSF_FRAME_SECONDS; i++) {
+        frame[i] = pulse;
+    }
+}
+
 static void bsf_set_symbol(RadioClockPulse* frame, uint8_t second, RadioClockPulse pulse) {
     frame[second] = pulse;
 }
@@ -62,13 +68,12 @@ void set_bsf_timecode(
     uint8_t weekday,
     bool leap_second_warning,
     bool dst_active) {
-    memset(dest, RadioClockPulsePair00, sizeof(RadioClockPulse) * BSF_FRAME_SECONDS);
+    bsf_fill_frame(dest, RadioClockPulsePair00);
 
-    dest[0] = RadioClockPulseMarker;
     dest[39] = RadioClockPulseMarker;
     dest[59] = RadioClockPulseMarker;
 
-    /* Public-information slots stay zeroed until they are specified. */
+    /* Taiwan's draft/public examples leave the public-information section zeroed. */
     dest[40] = RadioClockPulsePair01;
     bsf_set_weighted_pair(dest, 41U, minute, 32U, 16U);
     bsf_set_weighted_pair(dest, 42U, minute, 8U, 4U);
