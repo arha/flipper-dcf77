@@ -120,10 +120,38 @@ static void test_bsf_parity_changes_with_payload(void) {
     assert(frame_a[46] != frame_b[46]);
 }
 
+static void test_sunday_weekday_wraps_to_zero(void) {
+    RadioClockPulse frame[BSF_FRAME_SECONDS];
+
+    set_bsf_timecode(frame, 0, 0, 6, 4, 26, 7, false, false);
+
+    assert(pulse_low_bit(frame[49U]) == false);
+    assert(weighted_pair_value(frame, 50U, 2U, 1U) == 0U);
+}
+
+static void test_time_and_date_parity_groups_change_independently(void) {
+    RadioClockPulse time_a[BSF_FRAME_SECONDS];
+    RadioClockPulse time_b[BSF_FRAME_SECONDS];
+    RadioClockPulse date_a[BSF_FRAME_SECONDS];
+    RadioClockPulse date_b[BSF_FRAME_SECONDS];
+
+    set_bsf_timecode(time_a, 16, 9, 28, 9, 9, 1, false, false);
+    set_bsf_timecode(time_b, 17, 9, 28, 9, 9, 1, false, false);
+    assert(time_a[46] != time_b[46]);
+    assert(time_a[56] == time_b[56]);
+
+    set_bsf_timecode(date_a, 16, 9, 28, 9, 9, 1, false, false);
+    set_bsf_timecode(date_b, 16, 9, 29, 9, 9, 1, false, false);
+    assert(date_a[46] == date_b[46]);
+    assert(date_a[56] != date_b[56]);
+}
+
 int main(void) {
     test_taiwan_example_2009_09_28_0916();
     test_time_and_date_fields_decode_back();
     test_bsf_parity_changes_with_payload();
+    test_sunday_weekday_wraps_to_zero();
+    test_time_and_date_parity_groups_change_independently();
     puts("test_set_bsf_message: OK");
     return 0;
 }

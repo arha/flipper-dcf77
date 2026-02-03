@@ -80,6 +80,19 @@ static void test_captured_jinan_example_starts_with_known_symbols(void) {
     assert(strncmp(actual, "M0013202130", 11U) == 0);
 }
 
+static void test_captured_jinan_example_full_minute_matches_repeated_blocks(void) {
+    RadioClockPulse frame[BPC_FRAME_SECONDS];
+    char actual[BPC_FRAME_SECONDS + 1];
+
+    set_bpc_timecode(frame, 34, 7, 11, 1, 26, 7);
+    frame_to_string(frame, actual);
+
+    assert(
+        strcmp(
+            actual,
+            "M0013202130023011221M1013202131023011220M2013202131023011220") == 0);
+}
+
 static void test_block_fields_and_block_index_digits(void) {
     RadioClockPulse frame[BPC_FRAME_SECONDS];
 
@@ -120,10 +133,29 @@ static void test_parity_changes_when_payload_changes(void) {
     assert(frame_a[10] != frame_b[10]);
 }
 
+static void test_time_and_date_parity_groups_change_independently(void) {
+    RadioClockPulse minute_a[BPC_FRAME_SECONDS];
+    RadioClockPulse minute_b[BPC_FRAME_SECONDS];
+    RadioClockPulse date_a[BPC_FRAME_SECONDS];
+    RadioClockPulse date_b[BPC_FRAME_SECONDS];
+
+    set_bpc_timecode(minute_a, 34, 7, 11, 1, 26, 7);
+    set_bpc_timecode(minute_b, 35, 7, 11, 1, 26, 7);
+    assert(minute_a[10] != minute_b[10]);
+    assert(minute_a[19] != minute_b[19]);
+
+    set_bpc_timecode(date_a, 34, 7, 11, 1, 26, 7);
+    set_bpc_timecode(date_b, 34, 7, 12, 1, 26, 7);
+    assert(date_a[10] == date_b[10]);
+    assert(date_a[19] != date_b[19]);
+}
+
 int main(void) {
     test_captured_jinan_example_starts_with_known_symbols();
+    test_captured_jinan_example_full_minute_matches_repeated_blocks();
     test_block_fields_and_block_index_digits();
     test_parity_changes_when_payload_changes();
+    test_time_and_date_parity_groups_change_independently();
     puts("test_set_bpc_message: OK");
     return 0;
 }

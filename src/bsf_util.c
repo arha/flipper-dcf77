@@ -68,6 +68,9 @@ void set_bsf_timecode(
     uint8_t weekday,
     bool leap_second_warning,
     bool dst_active) {
+    /* BSF weekdays are encoded as 0-6, with Sunday represented as 0. */
+    weekday = (uint8_t)(weekday % 7U);
+
     bsf_fill_frame(dest, RadioClockPulsePair00);
 
     dest[39] = RadioClockPulseMarker;
