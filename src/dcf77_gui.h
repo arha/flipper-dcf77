@@ -5,7 +5,7 @@
 
 typedef struct {
     AppFSM* app_fsm;
-} Dcf77TxViewModel;
+} Dcf77AppViewModel;
 
 void dcf77_gui_init(AppFSM* app_fsm);
 void dcf77_gui_deinit(AppFSM* app_fsm);

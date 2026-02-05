@@ -85,6 +85,7 @@ typedef enum {
     AppScreenSubGhzSettings,
     AppScreenSubGhzFreqInput,
     AppScreenDebugSettings,
+    AppScreenGpioRfWarning,
     AppScreenAbout,
     AppScreenEgg,
 } AppScreen;
@@ -97,6 +98,7 @@ typedef enum {
     Dcf77ViewSubGhzSettings,
     Dcf77ViewSubGhzFreqInput,
     Dcf77ViewDebugSettings,
+    Dcf77ViewGpioRfWarning,
     Dcf77ViewAbout,
     Dcf77ViewEgg,
 } Dcf77View;
@@ -181,6 +183,7 @@ typedef struct AppFSM {
     uint8_t speaker_value_index;
     uint8_t gpio_baseband_pin_number;
     uint8_t gpio_rf_pin_number;
+    uint8_t gpio_rf_pending_pin_number;
     uint8_t gpio_rf_duty_cycle;
     uint8_t led_color_index;
     uint8_t screen_mode;
@@ -201,6 +204,7 @@ typedef struct AppFSM {
     Widget* startup_widget;
     Widget* about_widget;
     Widget* egg_widget;
+    View* gpio_rf_warning_view;
     View* tx_view;
     VariableItem* lf_signal_item;
     VariableItem* lf_tx_enabled_item;

@@ -181,6 +181,13 @@ void dcf77_app_switch_to_debug_settings(AppFSM* app_fsm) {
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewDebugSettings);
 }
 
+void dcf77_app_switch_to_gpio_rf_warning(AppFSM* app_fsm, uint8_t pending_pin) {
+    app_fsm->gpio_rf_pending_pin_number = pending_pin;
+    app_fsm->screen = AppScreenGpioRfWarning;
+    notification_message_block(app_fsm->notification, &sequence_error);
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewGpioRfWarning);
+}
+
 static void dcf77_app_switch_to_subghz_freq_input(AppFSM* app_fsm) {
     const int32_t current_khz = (int32_t)(dcf77_app_get_subghz_frequency(app_fsm) / 1000U);
     const int32_t min_khz = (int32_t)(app_fsm->subghz_band_starts[app_fsm->subghz_band_index] / 1000U);
@@ -493,6 +500,36 @@ void dcf77_subghz_freq_input_result_callback(void* ctx, int32_t number) {
     dcf77_app_switch_to_subghz_settings(app_fsm);
 }
 
+static void dcf77_debug_settings_cancel_gpio_rf_warning(AppFSM* app_fsm) {
+    app_fsm->gpio_rf_pending_pin_number = dcf77_debug_gpio_rf_default_pin();
+    dcf77_app_switch_to_debug_settings(app_fsm);
+}
+
+static void dcf77_debug_settings_accept_gpio_rf_warning(AppFSM* app_fsm) {
+    dcf77_app_set_gpio_rf_pin(app_fsm, app_fsm->gpio_rf_pending_pin_number);
+    app_fsm->gpio_rf_pending_pin_number = dcf77_debug_gpio_rf_default_pin();
+    dcf77_debug_settings_apply(app_fsm);
+    dcf77_app_switch_to_debug_settings(app_fsm);
+}
+
+static bool dcf77_debug_settings_step_gpio_rf(AppFSM* app_fsm, int8_t direction) {
+    const uint8_t next_pin = dcf77_debug_gpio_rf_step(app_fsm->gpio_rf_pin_number, direction);
+
+    if(next_pin == app_fsm->gpio_rf_pin_number) {
+        return true;
+    }
+
+    if(app_fsm->gpio_rf_pin_number == dcf77_debug_gpio_rf_default_pin() &&
+       next_pin != dcf77_debug_gpio_rf_default_pin()) {
+        dcf77_app_switch_to_gpio_rf_warning(app_fsm, next_pin);
+        return true;
+    }
+
+    dcf77_app_set_gpio_rf_pin(app_fsm, next_pin);
+    dcf77_debug_settings_apply(app_fsm);
+    return true;
+}
+
 bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx) {
     AppFSM* app_fsm = ctx;
     uint8_t selected;
@@ -531,14 +568,7 @@ bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx) {
             return true;
         }
         if(selected == Dcf77DebugSettingRf) {
-            const uint8_t old_baseband = app_fsm->gpio_baseband_pin_number;
-            dcf77_app_set_gpio_rf_pin(
-                app_fsm, dcf77_debug_gpio_rf_step(app_fsm->gpio_rf_pin_number, -1));
-            if(old_baseband != app_fsm->gpio_baseband_pin_number) {
-                dcf77_output_gpio_reconfigure(app_fsm, old_baseband);
-            }
-            dcf77_debug_settings_apply(app_fsm);
-            return true;
+            return dcf77_debug_settings_step_gpio_rf(app_fsm, -1);
         }
         if(selected == Dcf77DebugSettingDutyCycle) {
             dcf77_app_set_gpio_rf_duty_cycle(
@@ -584,14 +614,7 @@ bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx) {
             return true;
         }
         if(selected == Dcf77DebugSettingRf) {
-            const uint8_t old_baseband = app_fsm->gpio_baseband_pin_number;
-            dcf77_app_set_gpio_rf_pin(
-                app_fsm, dcf77_debug_gpio_rf_step(app_fsm->gpio_rf_pin_number, 1));
-            if(old_baseband != app_fsm->gpio_baseband_pin_number) {
-                dcf77_output_gpio_reconfigure(app_fsm, old_baseband);
-            }
-            dcf77_debug_settings_apply(app_fsm);
-            return true;
+            return dcf77_debug_settings_step_gpio_rf(app_fsm, 1);
         }
         if(selected == Dcf77DebugSettingDutyCycle) {
             dcf77_app_set_gpio_rf_duty_cycle(
@@ -626,6 +649,33 @@ bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx) {
             return true;
         }
         return false;
+    default:
+        return false;
+    }
+}
+
+uint32_t dcf77_gpio_rf_warning_previous_callback(void* ctx) {
+    AppFSM* app_fsm = ctx;
+    dcf77_debug_settings_cancel_gpio_rf_warning(app_fsm);
+    return Dcf77ViewDebugSettings;
+}
+
+bool dcf77_gpio_rf_warning_input_callback(InputEvent* event, void* ctx) {
+    AppFSM* app_fsm = ctx;
+
+    if(event->type != InputTypePress && event->type != InputTypeShort) {
+        return false;
+    }
+
+    switch(event->key) {
+    case InputKeyLeft:
+    case InputKeyBack:
+        dcf77_debug_settings_cancel_gpio_rf_warning(app_fsm);
+        return true;
+    case InputKeyRight:
+    case InputKeyOk:
+        dcf77_debug_settings_accept_gpio_rf_warning(app_fsm);
+        return true;
     default:
         return false;
     }
@@ -799,7 +849,7 @@ void dcf77_tick_callback(void* ctx) {
         app_fsm->last_tx_refresh_tick = now;
         with_view_model(
             app_fsm->tx_view,
-            Dcf77TxViewModel * tx_model,
+            Dcf77AppViewModel * tx_model,
             {
                 UNUSED(tx_model);
             },

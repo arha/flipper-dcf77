@@ -9,6 +9,7 @@ void dcf77_app_switch_to_egg(AppFSM* app_fsm);
 void dcf77_app_switch_to_lf_settings(AppFSM* app_fsm);
 void dcf77_app_switch_to_subghz_settings(AppFSM* app_fsm);
 void dcf77_app_switch_to_debug_settings(AppFSM* app_fsm);
+void dcf77_app_switch_to_gpio_rf_warning(AppFSM* app_fsm, uint8_t pending_pin);
 void dcf77_app_start_tx(AppFSM* app_fsm);
 void dcf77_app_stop_tx(AppFSM* app_fsm);
 
@@ -32,5 +33,7 @@ void dcf77_subghz_settings_enter_callback(void* ctx, uint32_t index);
 uint32_t dcf77_subghz_freq_input_previous_callback(void* ctx);
 void dcf77_subghz_freq_input_result_callback(void* ctx, int32_t number);
 bool dcf77_debug_settings_input_callback(InputEvent* event, void* ctx);
+uint32_t dcf77_gpio_rf_warning_previous_callback(void* ctx);
+bool dcf77_gpio_rf_warning_input_callback(InputEvent* event, void* ctx);
 
 #endif

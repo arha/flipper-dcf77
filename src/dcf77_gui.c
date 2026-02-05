@@ -83,8 +83,48 @@ static void dcf77_tx_render_user_mode(Canvas* const canvas, const AppFSM* app_fs
     canvas_draw_str(canvas, 4, 52, buffer);
 }
 
+static void dcf77_gpio_rf_warning_render_callback(Canvas* const canvas, void* model) {
+    Dcf77AppViewModel* warning_model = model;
+    AppFSM* app_fsm = warning_model->app_fsm;
+    char pin_text[8];
+    char title_text[20];
+    const int32_t left_x = 6;
+    const int32_t right_x = 46;
+    const int32_t top_y = 10;
+    const int32_t bottom_y = 52;
+    const int32_t center_x = (left_x + right_x) / 2;
+
+    dcf77_debug_format_pin_text(
+        pin_text, sizeof(pin_text), app_fsm->gpio_rf_pending_pin_number, true);
+    snprintf(title_text, sizeof(title_text), "GPIO RF %s", pin_text);
+
+    canvas_draw_frame(canvas, 0, 0, 128, 64);
+
+    /* Keep the warning simple and obvious: a large left-side triangle with the
+       explanatory text on the right. This stays readable without introducing
+       another widget implementation just for one confirm step. */
+    canvas_draw_line(canvas, left_x, bottom_y, center_x, top_y);
+    canvas_draw_line(canvas, left_x + 1, bottom_y, center_x, top_y + 1);
+    canvas_draw_line(canvas, center_x, top_y, right_x, bottom_y);
+    canvas_draw_line(canvas, center_x, top_y + 1, right_x - 1, bottom_y);
+    canvas_draw_line(canvas, left_x, bottom_y, right_x, bottom_y);
+    canvas_draw_line(canvas, left_x + 1, bottom_y - 1, right_x - 1, bottom_y - 1);
+    canvas_draw_box(canvas, center_x - 1, 22, 3, 15);
+    canvas_draw_box(canvas, center_x - 1, 41, 3, 3);
+
+    canvas_set_font(canvas, FontPrimary);
+    canvas_draw_str(canvas, 56, 14, title_text);
+    canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str(canvas, 56, 26, "LF and SubGHz");
+    canvas_draw_str(canvas, 56, 36, "are disabled");
+    canvas_draw_str(canvas, 56, 46, "while RF is on.");
+
+    elements_button_left(canvas, "Back");
+    elements_button_right(canvas, "Next");
+}
+
 static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
-    Dcf77TxViewModel* tx_model = model;
+    Dcf77AppViewModel* tx_model = model;
     AppFSM* app_fsm = tx_model->app_fsm;
     char buffer[64];
 
@@ -353,11 +393,29 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         Dcf77ViewDebugSettings,
         variable_item_list_get_view(app_fsm->debug_settings));
 
+    app_fsm->gpio_rf_warning_view = view_alloc();
+    view_allocate_model(
+        app_fsm->gpio_rf_warning_view, ViewModelTypeLockFree, sizeof(Dcf77AppViewModel));
+    with_view_model(
+        app_fsm->gpio_rf_warning_view,
+        Dcf77AppViewModel * warning_model,
+        {
+            warning_model->app_fsm = app_fsm;
+        },
+        false);
+    view_set_context(app_fsm->gpio_rf_warning_view, app_fsm);
+    view_set_draw_callback(app_fsm->gpio_rf_warning_view, dcf77_gpio_rf_warning_render_callback);
+    view_set_input_callback(app_fsm->gpio_rf_warning_view, dcf77_gpio_rf_warning_input_callback);
+    view_set_previous_callback(
+        app_fsm->gpio_rf_warning_view, dcf77_gpio_rf_warning_previous_callback);
+    view_dispatcher_add_view(
+        app_fsm->view_dispatcher, Dcf77ViewGpioRfWarning, app_fsm->gpio_rf_warning_view);
+
     app_fsm->tx_view = view_alloc();
-    view_allocate_model(app_fsm->tx_view, ViewModelTypeLockFree, sizeof(Dcf77TxViewModel));
+    view_allocate_model(app_fsm->tx_view, ViewModelTypeLockFree, sizeof(Dcf77AppViewModel));
     with_view_model(
         app_fsm->tx_view,
-        Dcf77TxViewModel * tx_model,
+        Dcf77AppViewModel * tx_model,
         {
             tx_model->app_fsm = app_fsm;
         },
@@ -394,6 +452,7 @@ void dcf77_gui_init(AppFSM* app_fsm) {
 void dcf77_gui_deinit(AppFSM* app_fsm) {
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewEgg);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewAbout);
+    view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewGpioRfWarning);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewDebugSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzFreqInput);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
@@ -403,6 +462,7 @@ void dcf77_gui_deinit(AppFSM* app_fsm) {
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewStartup);
     widget_free(app_fsm->egg_widget);
     widget_free(app_fsm->about_widget);
+    view_free(app_fsm->gpio_rf_warning_view);
     view_free(app_fsm->tx_view);
     number_input_free(app_fsm->subghz_freq_input);
     variable_item_list_free(app_fsm->debug_settings);
