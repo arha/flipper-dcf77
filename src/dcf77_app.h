@@ -184,6 +184,7 @@ typedef struct AppFSM {
     uint8_t gpio_baseband_pin_number;
     uint8_t gpio_rf_pin_number;
     uint8_t gpio_rf_pending_pin_number;
+    uint8_t tx_progress_second;
     uint8_t gpio_rf_duty_cycle;
     uint8_t led_color_index;
     uint8_t screen_mode;
@@ -194,6 +195,7 @@ typedef struct AppFSM {
     AppScreen screen;
     uint32_t startup_deadline_tick;
     uint32_t last_tx_refresh_tick;
+    uint32_t tx_second_start_tick;
 
     ViewDispatcher* view_dispatcher;
     Submenu* submenu;

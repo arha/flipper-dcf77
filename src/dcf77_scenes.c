@@ -218,6 +218,8 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
     if(app_fsm->current_signal == RadioClockSignalTest) {
         app_fsm->bit_number = 0;
         app_fsm->bit_value = 1;
+        app_fsm->tx_progress_second = 0;
+        app_fsm->tx_second_start_tick = furi_get_tick();
         app_fsm->tx_active = true;
         dcf77_timing_start(app_fsm);
         dcf77_app_apply_rf_settings(app_fsm);
@@ -249,6 +251,8 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
 #else
     dcf77_logic_sync_to_second(app_fsm, &dt);
 #endif
+    app_fsm->tx_progress_second = app_fsm->bit_number;
+    app_fsm->tx_second_start_tick = furi_get_tick();
     dcf77_timing_start(app_fsm);
     dcf77_app_apply_rf_settings(app_fsm);
     app_fsm->screen = AppScreenTx;
@@ -845,7 +849,21 @@ void dcf77_tick_callback(void* ctx) {
         dcf77_subghz_sync_output(app_fsm);
     }
 
-    if(app_fsm->screen == AppScreenTx && now - app_fsm->last_tx_refresh_tick >= 50U) {
+    if(app_fsm->tx_active) {
+        if(app_fsm->current_signal == RadioClockSignalTest) {
+            DateTime dt;
+            furi_hal_rtc_get_datetime(&dt);
+            if(dt.second != app_fsm->tx_progress_second) {
+                app_fsm->tx_progress_second = dt.second;
+                app_fsm->tx_second_start_tick = now;
+            }
+        } else if(app_fsm->bit_number != app_fsm->tx_progress_second) {
+            app_fsm->tx_progress_second = app_fsm->bit_number;
+            app_fsm->tx_second_start_tick = now;
+        }
+    }
+
+    if(app_fsm->screen == AppScreenTx && now - app_fsm->last_tx_refresh_tick >= 500U) {
         app_fsm->last_tx_refresh_tick = now;
         with_view_model(
             app_fsm->tx_view,

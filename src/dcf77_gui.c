@@ -2,6 +2,7 @@
 
 #include "dcf77_logic.h"
 #include "dcf77_scenes.h"
+#include "dcf77_icons.h"
 
 static const char about_text[] =
     "Designed by arha, to debug my radioclocks that never seem to work just right.\n"
@@ -13,6 +14,61 @@ static const char egg_text[] = "wow you found an easter egg\n";
 
 static const char* dcf77_tx_lf_state_label(const AppFSM* app_fsm) {
     return app_fsm->lf_ready ? "on" : "off";
+}
+
+static void dcf77_tx_render_progress_bar(Canvas* const canvas, const AppFSM* app_fsm) {
+    const uint8_t bar_width = 120U;
+    const uint8_t bar_x = 4U;
+    const uint8_t fill_y = 58U;
+    const uint8_t fill_height = 4U;
+    uint8_t second = app_fsm->tx_progress_second;
+    uint32_t elapsed_ms = 0U;
+
+    if(app_fsm->current_signal == RadioClockSignalTest) {
+        DateTime dt;
+        furi_hal_rtc_get_datetime(&dt);
+        second = dt.second;
+        elapsed_ms = (furi_get_tick() % furi_kernel_get_tick_frequency()) * 1000U /
+                     furi_kernel_get_tick_frequency();
+    } else if(furi_get_tick() >= app_fsm->tx_second_start_tick) {
+        elapsed_ms =
+            (furi_get_tick() - app_fsm->tx_second_start_tick) * 1000U / furi_kernel_get_tick_frequency();
+    }
+
+    if(second >= 60U) {
+        second = 59U;
+    }
+    if(elapsed_ms > 999U) {
+        elapsed_ms = 999U;
+    }
+
+    uint8_t fill_width = (uint8_t)(second * 2U);
+    if(elapsed_ms >= 500U && fill_width < bar_width) {
+        fill_width++;
+    }
+    if(second == 59U && elapsed_ms >= 500U) {
+        fill_width = bar_width;
+    }
+
+    if(fill_width == 0U) {
+        return;
+    }
+
+    if(fill_width == 1U) {
+        canvas_draw_line(canvas, bar_x, fill_y + 1U, bar_x, fill_y + 2U);
+        return;
+    }
+
+    canvas_draw_line(canvas, bar_x, fill_y + 1U, bar_x, fill_y + 2U);
+    if(fill_width > 2U) {
+        canvas_draw_box(canvas, bar_x + 1U, fill_y, fill_width - 2U, fill_height);
+    }
+    canvas_draw_line(
+        canvas,
+        bar_x + fill_width - 1U,
+        fill_y + 1U,
+        bar_x + fill_width - 1U,
+        fill_y + 2U);
 }
 
 static void dcf77_tx_get_display_datetime(const AppFSM* app_fsm, DateTime* dt) {
@@ -55,14 +111,14 @@ static void dcf77_tx_render_user_mode(Canvas* const canvas, const AppFSM* app_fs
     } else {
         snprintf(buffer, sizeof(buffer), "lf: off");
     }
-    canvas_draw_str(canvas, 4, 28, buffer);
+    canvas_draw_str(canvas, 4, 24, buffer);
 
     if(app_fsm->subghz_ready) {
         snprintf(buffer, sizeof(buffer), "subghz: %s MHz", app_fsm->subghz_frequency_text);
     } else {
         snprintf(buffer, sizeof(buffer), "subghz: off");
     }
-    canvas_draw_str(canvas, 4, 40, buffer);
+    canvas_draw_str(canvas, 4, 34, buffer);
 
     if(dcf77_app_gpio_rf_enabled(app_fsm)) {
         snprintf(
@@ -80,44 +136,21 @@ static void dcf77_tx_render_user_mode(Canvas* const canvas, const AppFSM* app_fs
             app_fsm->gpio_baseband_text,
             app_fsm->gpio_rf_text);
     }
-    canvas_draw_str(canvas, 4, 52, buffer);
+    canvas_draw_str(canvas, 4, 44, buffer);
+    dcf77_tx_render_progress_bar(canvas, app_fsm);
 }
 
 static void dcf77_gpio_rf_warning_render_callback(Canvas* const canvas, void* model) {
     Dcf77AppViewModel* warning_model = model;
-    AppFSM* app_fsm = warning_model->app_fsm;
-    char pin_text[8];
-    char title_text[20];
-    const int32_t left_x = 6;
-    const int32_t right_x = 46;
-    const int32_t top_y = 10;
-    const int32_t bottom_y = 52;
-    const int32_t center_x = (left_x + right_x) / 2;
-
-    dcf77_debug_format_pin_text(
-        pin_text, sizeof(pin_text), app_fsm->gpio_rf_pending_pin_number, true);
-    snprintf(title_text, sizeof(title_text), "GPIO RF %s", pin_text);
+    UNUSED(warning_model);
 
     canvas_draw_frame(canvas, 0, 0, 128, 64);
+    canvas_draw_icon(canvas, 10, 18, &I_warn_small);
 
-    /* Keep the warning simple and obvious: a large left-side triangle with the
-       explanatory text on the right. This stays readable without introducing
-       another widget implementation just for one confirm step. */
-    canvas_draw_line(canvas, left_x, bottom_y, center_x, top_y);
-    canvas_draw_line(canvas, left_x + 1, bottom_y, center_x, top_y + 1);
-    canvas_draw_line(canvas, center_x, top_y, right_x, bottom_y);
-    canvas_draw_line(canvas, center_x, top_y + 1, right_x - 1, bottom_y);
-    canvas_draw_line(canvas, left_x, bottom_y, right_x, bottom_y);
-    canvas_draw_line(canvas, left_x + 1, bottom_y - 1, right_x - 1, bottom_y - 1);
-    canvas_draw_box(canvas, center_x - 1, 22, 3, 15);
-    canvas_draw_box(canvas, center_x - 1, 41, 3, 3);
-
-    canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str(canvas, 56, 14, title_text);
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 56, 26, "LF and SubGHz");
-    canvas_draw_str(canvas, 56, 36, "are disabled");
-    canvas_draw_str(canvas, 56, 46, "while RF is on.");
+    canvas_draw_str(canvas, 48, 16, "LF and SubGHZ");
+    canvas_draw_str(canvas, 48, 28, "disabled with");
+    canvas_draw_str(canvas, 48, 40, "GPIO RF enabled");
 
     elements_button_left(canvas, "Back");
     elements_button_right(canvas, "Next");
@@ -147,9 +180,10 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
             "LF %s %lu Hz",
             dcf77_tx_lf_state_label(app_fsm),
             (unsigned long)app_fsm->lf_freq);
-        canvas_draw_str_aligned(canvas, 64, 44, AlignCenter, AlignBottom, buffer);
+        canvas_draw_str_aligned(canvas, 64, 42, AlignCenter, AlignBottom, buffer);
         snprintf(buffer, sizeof(buffer), "SubGHz %s", app_fsm->subghz_ready ? "on" : "off");
-        canvas_draw_str_aligned(canvas, 64, 58, AlignCenter, AlignBottom, buffer);
+        canvas_draw_str_aligned(canvas, 64, 52, AlignCenter, AlignBottom, buffer);
+        dcf77_tx_render_progress_bar(canvas, app_fsm);
         return;
     }
 
@@ -167,7 +201,7 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
             app_fsm->tx_day,
             app_fsm->tx_month,
             app_fsm->tx_year);
-        canvas_draw_str_aligned(canvas, 64, 12, AlignCenter, AlignBottom, buffer);
+        canvas_draw_str_aligned(canvas, 64, 11, AlignCenter, AlignBottom, buffer);
         canvas_set_font(canvas, FontPrimary);
         snprintf(
             buffer,
@@ -176,7 +210,7 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
             app_fsm->tx_hour,
             app_fsm->tx_minute,
             app_fsm->bit_number);
-        canvas_draw_str_aligned(canvas, 64, 28, AlignCenter, AlignBottom, buffer);
+        canvas_draw_str_aligned(canvas, 64, 25, AlignCenter, AlignBottom, buffer);
         canvas_set_font(canvas, FontSecondary);
         snprintf(
             buffer,
@@ -184,11 +218,11 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
             "sec %02u pulse %s",
             app_fsm->bit_number,
             dcf77_logic_get_pulse_label(app_fsm->current_pulse));
-        canvas_draw_str_aligned(canvas, 64, 46, AlignCenter, AlignBottom, buffer);
+        canvas_draw_str_aligned(canvas, 64, 40, AlignCenter, AlignBottom, buffer);
+        dcf77_tx_render_progress_bar(canvas, app_fsm);
         return;
     }
 
-    const uint8_t yoffset = 9;
     const uint8_t bit_number = app_fsm->bit_number;
     const uint8_t bit_value = app_fsm->bit_value;
     uint8_t underline_x = (bit_number / 8) * 12 + 16;
@@ -215,10 +249,10 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
 
     canvas_set_font(canvas, FontSecondary);
     snprintf(buffer, sizeof(buffer), "%1x.%1x=%01x", bit_number / 8, bit_number % 8, bit_value);
-    canvas_draw_str_aligned(canvas, 64, 24 + (9 - yoffset), AlignCenter, AlignBottom, buffer);
+    canvas_draw_str_aligned(canvas, 64, 21, AlignCenter, AlignBottom, buffer);
 
     snprintf(buffer, sizeof(buffer), "%s (bit %d)", dcf77_bitnames[bit_number], bit_value);
-    canvas_draw_str_aligned(canvas, 64, 34 + (9 - yoffset), AlignCenter, AlignBottom, buffer);
+    canvas_draw_str_aligned(canvas, 64, 30, AlignCenter, AlignBottom, buffer);
 
     canvas_set_font(canvas, FontKeyboard);
     snprintf(
@@ -233,9 +267,9 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
         app_fsm->dcf77_message[5],
         app_fsm->dcf77_message[6],
         app_fsm->dcf77_message[7]);
-    canvas_draw_str_aligned(canvas, 64, 44 + (9 - yoffset), AlignCenter, AlignBottom, buffer);
+    canvas_draw_str_aligned(canvas, 64, 41, AlignCenter, AlignBottom, buffer);
 
-    canvas_draw_line(canvas, underline_x, 45, underline_x + 10, 45);
+    canvas_draw_line(canvas, underline_x, 42, underline_x + 10, 42);
     for(int i = 0; i < 8; i++) {
         if(byte & (1 << (7 - i))) {
             display_bits[i] = '1';
@@ -243,9 +277,10 @@ static void dcf77_tx_render_callback(Canvas* const canvas, void* model) {
     }
 
     snprintf(buffer, sizeof(buffer), "%02x=%s", byte, display_bits);
-    canvas_draw_str_aligned(canvas, 64, 54 + (9 - yoffset), AlignCenter, AlignBottom, buffer);
+    canvas_draw_str_aligned(canvas, 64, 51, AlignCenter, AlignBottom, buffer);
     underline_x = (bit_number % 8) * 6 + 49;
-    canvas_draw_line(canvas, underline_x, 55, underline_x + 4, 55);
+    canvas_draw_line(canvas, underline_x, 52, underline_x + 4, 52);
+    dcf77_tx_render_progress_bar(canvas, app_fsm);
 }
 
 void dcf77_gui_init(AppFSM* app_fsm) {
