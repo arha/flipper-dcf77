@@ -3,9 +3,9 @@ CFLAGS ?= -std=c11 -Wall -Wextra -Werror -I../src
 
 .PHONY: all clean test
 
-all: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
+all: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings test_experimental_time
 
-test: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
+test: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings test_experimental_time
 	./test_set_dcf_message
 	./test_set_msf_message
 	./test_set_wwvb_message
@@ -16,6 +16,7 @@ test: test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_j
 	./test_radio_clock_protocol
 	./test_subghz_settings
 	./test_debug_settings
+	./test_experimental_time
 
 test_set_dcf_message: test_set_dcf_message.c ../src/dcf77_util.c ../src/dcf77_util.h
 	$(CC) $(CFLAGS) -o $@ test_set_dcf_message.c ../src/dcf77_util.c
@@ -47,5 +48,8 @@ test_subghz_settings: test_subghz_settings.c ../src/subghz_settings.c ../src/sub
 test_debug_settings: test_debug_settings.c ../src/debug_settings.c ../src/debug_settings.h
 	$(CC) $(CFLAGS) -o $@ test_debug_settings.c ../src/debug_settings.c
 
+test_experimental_time: test_experimental_time.c datetime_stub.c datetime_stub.h ../src/experimental_time.c ../src/experimental_time.h
+	$(CC) $(CFLAGS) -DDCF77_HOST_TEST -I. -o $@ test_experimental_time.c datetime_stub.c ../src/experimental_time.c
+
 clean:
-	rm -f test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings
+	rm -f test_set_dcf_message test_set_msf_message test_set_wwvb_message test_set_jjy_message test_set_bpc_message test_set_bsf_message test_hbg_util test_radio_clock_protocol test_subghz_settings test_debug_settings test_experimental_time
