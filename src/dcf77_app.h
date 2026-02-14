@@ -30,6 +30,7 @@
 
 #include "dcf77_util.h"
 #include "debug_settings.h"
+#include "experimental_time.h"
 #include "radio_clock.h"
 #include "radio_clock_pulse.h"
 #include "radio_clock_protocol.h"
@@ -81,6 +82,8 @@ typedef enum {
     AppScreenStartup,
     AppScreenMenu,
     AppScreenTx,
+    AppScreenExperimentalTimeSettings,
+    AppScreenPresetTimeInput,
     AppScreenLfSettings,
     AppScreenSubGhzSettings,
     AppScreenSubGhzFreqInput,
@@ -94,6 +97,8 @@ typedef enum {
     Dcf77ViewStartup,
     Dcf77ViewMenu,
     Dcf77ViewTx,
+    Dcf77ViewExperimentalTimeSettings,
+    Dcf77ViewPresetTimeInput,
     Dcf77ViewLfSettings,
     Dcf77ViewSubGhzSettings,
     Dcf77ViewSubGhzFreqInput,
@@ -107,6 +112,7 @@ typedef enum {
     Dcf77MenuItemStart,
     Dcf77MenuItemLfSettings,
     Dcf77MenuItemSubGhzSettings,
+    Dcf77MenuItemExperimentalTimeSettings,
     Dcf77MenuItemDebugSettings,
     Dcf77MenuItemAbout,
 } Dcf77MenuItem;
@@ -161,6 +167,8 @@ typedef struct AppFSM {
     RadioClockSecondWaveform next_waveform_frame[DCF77_SECONDS_PER_MINUTE];
     DateTime current_minute_dt;
     DateTime next_minute_dt;
+    Dcf77ExperimentalTimeSettings experimental_time_settings;
+    Dcf77ExperimentalTimeRuntime experimental_time_runtime;
     volatile uint8_t scheduler_second;
     volatile uint8_t scheduler_segment;
     volatile bool scheduler_ready;
@@ -200,6 +208,7 @@ typedef struct AppFSM {
     ViewDispatcher* view_dispatcher;
     Submenu* submenu;
     VariableItemList* lf_settings;
+    VariableItemList* experimental_time_settings_view;
     VariableItemList* subghz_settings;
     VariableItemList* debug_settings;
     NumberInput* subghz_freq_input;
@@ -212,6 +221,12 @@ typedef struct AppFSM {
     VariableItem* lf_tx_enabled_item;
     VariableItem* lf_freq_item;
     VariableItem* lf_default_freq_item;
+    VariableItem* experimental_time_enabled_item;
+    VariableItem* experimental_time_source_item;
+    VariableItem* experimental_preset_item;
+    VariableItem* experimental_stop_item;
+    VariableItem* experimental_speedup_item;
+    VariableItem* experimental_slowdown_item;
     VariableItem* subghz_tx_item;
     VariableItem* subghz_tone_item;
     VariableItem* subghz_band_item;
@@ -227,6 +242,9 @@ typedef struct AppFSM {
     bool lf_transmit_enabled;
     bool speaker_active;
     char lf_freq_text[16];
+    char experimental_preset_text[24];
+    char experimental_speedup_text[4];
+    char experimental_slowdown_text[4];
     char subghz_tone_text[16];
     char subghz_band_text[16];
     char subghz_frequency_text[16];
@@ -268,6 +286,14 @@ void dcf77_app_set_subghz_band(AppFSM* app_fsm, uint8_t band_index);
 void dcf77_app_set_subghz_frequency(AppFSM* app_fsm, uint32_t freq_hz);
 void dcf77_app_step_subghz_frequency(AppFSM* app_fsm, int8_t direction);
 uint32_t dcf77_app_get_subghz_frequency(const AppFSM* app_fsm);
+void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm);
+void dcf77_app_set_experimental_time_enabled(AppFSM* app_fsm, bool enabled);
+void dcf77_app_set_experimental_time_source(AppFSM* app_fsm, Dcf77ExperimentalTimeSource source);
+void dcf77_app_set_experimental_preset_datetime(AppFSM* app_fsm, const DateTime* datetime);
+void dcf77_app_set_experimental_stop_time(AppFSM* app_fsm, bool stop_time);
+void dcf77_app_set_experimental_speedup(AppFSM* app_fsm, uint8_t speedup);
+void dcf77_app_set_experimental_slowdown(AppFSM* app_fsm, uint8_t slowdown);
+void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm);
 void dcf77_app_set_speaker_value_index(AppFSM* app_fsm, uint8_t value_index);
 void dcf77_app_update_debug_texts(AppFSM* app_fsm);
 void dcf77_app_set_gpio_baseband_pin(AppFSM* app_fsm, uint8_t pin_number);
