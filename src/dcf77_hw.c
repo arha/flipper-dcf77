@@ -205,10 +205,15 @@ void dcf77_debug_sync_frame(AppFSM* app_fsm) {
 }
 
 static void dcf77_prepare_following_minute(AppFSM* app_fsm) {
-    DateTime next_minute = app_fsm->current_minute_dt;
-    next_minute.second = 0;
-    uint32_t next_timestamp = datetime_datetime_to_timestamp(&next_minute) + 60U;
-    datetime_timestamp_to_datetime(next_timestamp, &next_minute);
+    DateTime next_minute;
+
+    dcf77_experimental_time_advance_runtime(&app_fsm->experimental_time_runtime);
+    dcf77_experimental_time_get_frame_datetime(
+        &app_fsm->experimental_time_settings,
+        &app_fsm->experimental_time_runtime,
+        app_fsm->experimental_time_runtime.frame_index + 1U,
+        &next_minute);
+    next_minute.second = 0U;
     dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
 }
 

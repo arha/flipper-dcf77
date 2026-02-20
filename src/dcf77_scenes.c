@@ -204,6 +204,25 @@ static void dcf77_app_switch_to_subghz_freq_input(AppFSM* app_fsm) {
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzFreqInput);
 }
 
+static void dcf77_prepare_tx_minute_frames(AppFSM* app_fsm, const DateTime* rtc_snapshot) {
+    DateTime current_minute;
+    DateTime next_minute;
+
+    dcf77_experimental_time_seed_runtime(
+        &app_fsm->experimental_time_runtime, &app_fsm->experimental_time_settings, rtc_snapshot);
+    dcf77_experimental_time_get_current_frame_minute(
+        &app_fsm->experimental_time_settings, &app_fsm->experimental_time_runtime, &current_minute);
+    dcf77_logic_prepare_minute(app_fsm, &current_minute, false);
+
+    dcf77_experimental_time_get_frame_datetime(
+        &app_fsm->experimental_time_settings,
+        &app_fsm->experimental_time_runtime,
+        app_fsm->experimental_time_runtime.frame_index + 1U,
+        &next_minute);
+    next_minute.second = 0U;
+    dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
+}
+
 void dcf77_app_start_tx(AppFSM* app_fsm) {
     if(app_fsm->tx_active) {
         return;
@@ -231,16 +250,9 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
 
     DateTime dt;
     dcf77_wait_for_next_second(&dt);
-    app_fsm->tx_start_second_offset = dt.second;
-
-    DateTime current_minute = dt;
-    current_minute.second = 0;
-    dcf77_logic_prepare_minute(app_fsm, &current_minute, false);
-
-    DateTime next_minute = current_minute;
-    uint32_t next_timestamp = datetime_datetime_to_timestamp(&next_minute) + 60U;
-    datetime_timestamp_to_datetime(next_timestamp, &next_minute);
-    dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
+    dcf77_prepare_tx_minute_frames(app_fsm, &dt);
+    app_fsm->tx_start_second_offset =
+        dcf77_experimental_time_get_start_second(&app_fsm->experimental_time_runtime);
 
     app_fsm->tx_active = true;
 #if DEBUG_SYNC_FRAME
@@ -249,7 +261,9 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
 #if SYNC_ON_START
     dcf77_logic_sync_start(app_fsm, 50, true);
 #else
-    dcf77_logic_sync_to_second(app_fsm, &dt);
+    DateTime sync_dt = dt;
+    sync_dt.second = app_fsm->tx_start_second_offset;
+    dcf77_logic_sync_to_second(app_fsm, &sync_dt);
 #endif
     app_fsm->tx_progress_second = app_fsm->bit_number;
     app_fsm->tx_second_start_tick = furi_get_tick();
