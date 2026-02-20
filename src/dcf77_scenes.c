@@ -24,6 +24,15 @@ enum {
 };
 
 enum {
+    Dcf77ExperimentalTimeSettingEnabled,
+    Dcf77ExperimentalTimeSettingSource,
+    Dcf77ExperimentalTimeSettingPreset,
+    Dcf77ExperimentalTimeSettingStop,
+    Dcf77ExperimentalTimeSettingSpeedup,
+    Dcf77ExperimentalTimeSettingSlowdown,
+};
+
+enum {
     Dcf77SubGhzSettingTransmit,
     Dcf77SubGhzSettingFskTone,
     Dcf77SubGhzSettingBand,
@@ -41,6 +50,8 @@ enum {
 };
 
 static const char* const dcf77_subghz_mode_labels[] = {"No", "OOK", "FSK", "100%"};
+static const char* const dcf77_experimental_time_toggle_labels[] = {"No", "Yes"};
+static const char* const dcf77_experimental_time_source_labels[] = {"Flipper", "Preset"};
 
 static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
     variable_item_set_current_value_index(
@@ -61,6 +72,55 @@ static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
             UNUSED(model);
         },
         true);
+}
+
+static void dcf77_experimental_time_settings_sync(AppFSM* app_fsm) {
+    variable_item_set_current_value_index(
+        app_fsm->experimental_time_enabled_item,
+        app_fsm->experimental_time_settings.enabled ? 1U : 0U);
+    variable_item_set_current_value_text(
+        app_fsm->experimental_time_enabled_item,
+        dcf77_experimental_time_toggle_labels[app_fsm->experimental_time_settings.enabled ? 1U : 0U]);
+    variable_item_set_current_value_index(
+        app_fsm->experimental_time_source_item, app_fsm->experimental_time_settings.source);
+    variable_item_set_current_value_text(
+        app_fsm->experimental_time_source_item,
+        dcf77_experimental_time_source_labels[app_fsm->experimental_time_settings.source]);
+    variable_item_set_current_value_index(app_fsm->experimental_preset_item, 0U);
+    variable_item_set_current_value_text(
+        app_fsm->experimental_preset_item, app_fsm->experimental_preset_text);
+    variable_item_set_current_value_index(
+        app_fsm->experimental_stop_item,
+        app_fsm->experimental_time_settings.stop_time ? 1U : 0U);
+    variable_item_set_current_value_text(
+        app_fsm->experimental_stop_item,
+        dcf77_experimental_time_toggle_labels[app_fsm->experimental_time_settings.stop_time ? 1U : 0U]);
+    variable_item_set_current_value_index(
+        app_fsm->experimental_speedup_item,
+        (app_fsm->experimental_time_settings.speedup > 0U) ?
+            (app_fsm->experimental_time_settings.speedup - 1U) :
+            0U);
+    variable_item_set_current_value_text(
+        app_fsm->experimental_speedup_item, app_fsm->experimental_speedup_text);
+    variable_item_set_current_value_index(
+        app_fsm->experimental_slowdown_item,
+        (app_fsm->experimental_time_settings.slowdown > 0U) ?
+            (app_fsm->experimental_time_settings.slowdown - 1U) :
+            0U);
+    variable_item_set_current_value_text(
+        app_fsm->experimental_slowdown_item, app_fsm->experimental_slowdown_text);
+    with_view_model(
+        variable_item_list_get_view(app_fsm->experimental_time_settings_view),
+        void * model,
+        {
+            UNUSED(model);
+        },
+        true);
+}
+
+static void dcf77_experimental_time_settings_apply(AppFSM* app_fsm) {
+    dcf77_experimental_time_settings_sync(app_fsm);
+    dcf77_app_settings_save(app_fsm);
 }
 
 static void dcf77_lf_settings_select_next_signal(AppFSM* app_fsm, int8_t direction) {
@@ -167,6 +227,12 @@ void dcf77_app_switch_to_lf_settings(AppFSM* app_fsm) {
     app_fsm->screen = AppScreenLfSettings;
     dcf77_lf_settings_sync(app_fsm);
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
+}
+
+void dcf77_app_switch_to_experimental_time_settings(AppFSM* app_fsm) {
+    app_fsm->screen = AppScreenExperimentalTimeSettings;
+    dcf77_experimental_time_settings_sync(app_fsm);
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewExperimentalTimeSettings);
 }
 
 void dcf77_app_switch_to_subghz_settings(AppFSM* app_fsm) {
@@ -407,6 +473,110 @@ void dcf77_lf_settings_enter_callback(void* ctx, uint32_t index) {
         dcf77_app_apply_rf_settings(app_fsm);
         dcf77_app_settings_save(app_fsm);
     }
+}
+
+bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ctx) {
+    AppFSM* app_fsm = ctx;
+    uint8_t selected;
+
+    if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
+        return false;
+    }
+
+    selected = variable_item_list_get_selected_item_index(app_fsm->experimental_time_settings_view);
+
+    switch(event->key) {
+    case InputKeyUp:
+        if(selected == 0U) {
+            selected = Dcf77ExperimentalTimeSettingSlowdown;
+        } else {
+            selected--;
+        }
+        variable_item_list_set_selected_item(app_fsm->experimental_time_settings_view, selected);
+        return true;
+    case InputKeyDown:
+        selected++;
+        if(selected > Dcf77ExperimentalTimeSettingSlowdown) {
+            selected = 0U;
+        }
+        variable_item_list_set_selected_item(app_fsm->experimental_time_settings_view, selected);
+        return true;
+    case InputKeyLeft:
+        if(selected == Dcf77ExperimentalTimeSettingEnabled) {
+            dcf77_app_set_experimental_time_enabled(app_fsm, false);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77ExperimentalTimeSettingSource &&
+           app_fsm->experimental_time_settings.source > Dcf77ExperimentalTimeSourceFlipper) {
+            dcf77_app_set_experimental_time_source(
+                app_fsm, app_fsm->experimental_time_settings.source - 1);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77ExperimentalTimeSettingStop) {
+            dcf77_app_set_experimental_stop_time(app_fsm, false);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77ExperimentalTimeSettingSpeedup &&
+           app_fsm->experimental_time_settings.speedup > 1U) {
+            dcf77_app_set_experimental_speedup(
+                app_fsm, app_fsm->experimental_time_settings.speedup - 1U);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77ExperimentalTimeSettingSlowdown &&
+           app_fsm->experimental_time_settings.slowdown > 1U) {
+            dcf77_app_set_experimental_slowdown(
+                app_fsm, app_fsm->experimental_time_settings.slowdown - 1U);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        return selected == Dcf77ExperimentalTimeSettingPreset;
+    case InputKeyRight:
+        if(selected == Dcf77ExperimentalTimeSettingEnabled) {
+            dcf77_app_set_experimental_time_enabled(app_fsm, true);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77ExperimentalTimeSettingSource &&
+           app_fsm->experimental_time_settings.source + 1U < Dcf77ExperimentalTimeSourceCount) {
+            dcf77_app_set_experimental_time_source(
+                app_fsm, app_fsm->experimental_time_settings.source + 1U);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77ExperimentalTimeSettingStop) {
+            dcf77_app_set_experimental_stop_time(app_fsm, true);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77ExperimentalTimeSettingSpeedup &&
+           app_fsm->experimental_time_settings.speedup < 5U) {
+            dcf77_app_set_experimental_speedup(
+                app_fsm, app_fsm->experimental_time_settings.speedup + 1U);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77ExperimentalTimeSettingSlowdown &&
+           app_fsm->experimental_time_settings.slowdown < 5U) {
+            dcf77_app_set_experimental_slowdown(
+                app_fsm, app_fsm->experimental_time_settings.slowdown + 1U);
+            dcf77_experimental_time_settings_apply(app_fsm);
+            return true;
+        }
+        return selected == Dcf77ExperimentalTimeSettingPreset;
+    case InputKeyOk:
+        return selected == Dcf77ExperimentalTimeSettingPreset;
+    default:
+        return false;
+    }
+}
+
+void dcf77_experimental_time_settings_enter_callback(void* ctx, uint32_t index) {
+    UNUSED(ctx);
+    UNUSED(index);
 }
 
 bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx) {
@@ -807,6 +977,9 @@ void dcf77_menu_callback(void* ctx, uint32_t index) {
     case Dcf77MenuItemSubGhzSettings:
         dcf77_app_switch_to_subghz_settings(app_fsm);
         break;
+    case Dcf77MenuItemExperimentalTimeSettings:
+        dcf77_app_switch_to_experimental_time_settings(app_fsm);
+        break;
     case Dcf77MenuItemDebugSettings:
         dcf77_app_switch_to_debug_settings(app_fsm);
         break;
@@ -827,6 +1000,7 @@ bool dcf77_navigation_callback(void* ctx) {
     }
 
     if(app_fsm->screen == AppScreenLfSettings ||
+       app_fsm->screen == AppScreenExperimentalTimeSettings ||
        app_fsm->screen == AppScreenSubGhzSettings ||
        app_fsm->screen == AppScreenDebugSettings) {
         if(app_fsm->screen == AppScreenLfSettings && !dcf77_app_signal_can_run(app_fsm)) {
