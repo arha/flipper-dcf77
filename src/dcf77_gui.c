@@ -420,6 +420,15 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         Dcf77ViewSubGhzFreqInput,
         number_input_get_view(app_fsm->subghz_freq_input));
 
+    app_fsm->preset_time_input = dcf77_experimental_time_input_alloc();
+    view_set_previous_callback(
+        dcf77_experimental_time_input_get_view(app_fsm->preset_time_input),
+        dcf77_preset_time_input_previous_callback);
+    view_dispatcher_add_view(
+        app_fsm->view_dispatcher,
+        Dcf77ViewPresetTimeInput,
+        dcf77_experimental_time_input_get_view(app_fsm->preset_time_input));
+
     app_fsm->debug_settings = variable_item_list_alloc();
     app_fsm->debug_gpio_baseband_item = variable_item_list_add(
         app_fsm->debug_settings,
@@ -528,6 +537,7 @@ void dcf77_gui_deinit(AppFSM* app_fsm) {
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewDebugSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzFreqInput);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
+    view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewPresetTimeInput);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewExperimentalTimeSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewTx);
@@ -537,6 +547,7 @@ void dcf77_gui_deinit(AppFSM* app_fsm) {
     widget_free(app_fsm->about_widget);
     view_free(app_fsm->gpio_rf_warning_view);
     view_free(app_fsm->tx_view);
+    dcf77_experimental_time_input_free(app_fsm->preset_time_input);
     number_input_free(app_fsm->subghz_freq_input);
     variable_item_list_free(app_fsm->debug_settings);
     variable_item_list_free(app_fsm->subghz_settings);

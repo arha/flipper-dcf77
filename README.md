@@ -7,6 +7,7 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 
 # Features
 
+* Wonky time experiments: stop time, use a preset, or make minutes go slower/faster. NOTE: this only changes the timestamp the Flipper sends; to alter space-time you will need an expansion board
 * LF frequency configurable 20-200khz
 * LF test mode signal
 * Supports multiple time signals: DCF77, WWVB, MSF, JJY, BPC, BSF and HBG
@@ -25,6 +26,5 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 
 # todo
 
-* configurable simulated data (encoding the time `25:69` is possible)
 * simulate it just as a timezone offset (for changing clocks around your house according to your country's choice of DST madness)
 * Test it on citizen stuff: DCF77 ☑, WWVB ☑, MSF ☑, JJY ☑, BPC ☑, BSF ☑, HBG ☑. ALS162 is going to be tricky with its phase modulation. RBU might work

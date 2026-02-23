@@ -270,6 +270,13 @@ static void dcf77_app_switch_to_subghz_freq_input(AppFSM* app_fsm) {
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzFreqInput);
 }
 
+static void dcf77_app_switch_to_preset_time_input(AppFSM* app_fsm) {
+    dcf77_experimental_time_input_set(
+        app_fsm->preset_time_input, &app_fsm->experimental_time_settings.preset_datetime);
+    app_fsm->screen = AppScreenPresetTimeInput;
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewPresetTimeInput);
+}
+
 static void dcf77_prepare_tx_minute_frames(AppFSM* app_fsm, const DateTime* rtc_snapshot) {
     DateTime current_minute;
     DateTime next_minute;
@@ -575,8 +582,24 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
 }
 
 void dcf77_experimental_time_settings_enter_callback(void* ctx, uint32_t index) {
-    UNUSED(ctx);
-    UNUSED(index);
+    AppFSM* app_fsm = ctx;
+
+    if(index == Dcf77ExperimentalTimeSettingPreset) {
+        dcf77_app_switch_to_preset_time_input(app_fsm);
+    }
+}
+
+uint32_t dcf77_preset_time_input_previous_callback(void* ctx) {
+    AppFSM* app_fsm = ctx;
+    DateTime preset_datetime;
+
+    if(dcf77_experimental_time_input_get(app_fsm->preset_time_input, &preset_datetime)) {
+        dcf77_app_set_experimental_preset_datetime(app_fsm, &preset_datetime);
+        dcf77_app_settings_save(app_fsm);
+    }
+
+    dcf77_app_switch_to_experimental_time_settings(app_fsm);
+    return Dcf77ViewExperimentalTimeSettings;
 }
 
 bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx) {
@@ -1013,6 +1036,11 @@ bool dcf77_navigation_callback(void* ctx) {
 
     if(app_fsm->screen == AppScreenSubGhzFreqInput) {
         dcf77_app_switch_to_subghz_settings(app_fsm);
+        return true;
+    }
+
+    if(app_fsm->screen == AppScreenPresetTimeInput) {
+        dcf77_preset_time_input_previous_callback(app_fsm);
         return true;
     }
 

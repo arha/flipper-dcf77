@@ -31,6 +31,7 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx);
 void dcf77_lf_settings_enter_callback(void* ctx, uint32_t index);
 bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ctx);
 void dcf77_experimental_time_settings_enter_callback(void* ctx, uint32_t index);
+uint32_t dcf77_preset_time_input_previous_callback(void* ctx);
 bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx);
 void dcf77_subghz_settings_enter_callback(void* ctx, uint32_t index);
 uint32_t dcf77_subghz_freq_input_previous_callback(void* ctx);
