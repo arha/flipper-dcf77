@@ -31,6 +31,7 @@
 #include "dcf77_util.h"
 #include "debug_settings.h"
 #include "experimental_time.h"
+#include "experimental_time_input.h"
 #include "radio_clock.h"
 #include "radio_clock_pulse.h"
 #include "radio_clock_protocol.h"
@@ -212,6 +213,7 @@ typedef struct AppFSM {
     VariableItemList* subghz_settings;
     VariableItemList* debug_settings;
     NumberInput* subghz_freq_input;
+    Dcf77ExperimentalTimeInput* preset_time_input;
     Widget* startup_widget;
     Widget* about_widget;
     Widget* egg_widget;
