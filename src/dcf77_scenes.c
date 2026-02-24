@@ -271,8 +271,15 @@ static void dcf77_app_switch_to_subghz_freq_input(AppFSM* app_fsm) {
 }
 
 static void dcf77_app_switch_to_preset_time_input(AppFSM* app_fsm) {
+    DateTime preset_datetime = app_fsm->experimental_time_settings.preset_datetime;
+
+    if(app_fsm->experimental_time_settings.source == Dcf77ExperimentalTimeSourceFlipper) {
+        furi_hal_rtc_get_datetime(&preset_datetime);
+        dcf77_experimental_time_normalize_datetime(&preset_datetime, &preset_datetime);
+    }
+
     dcf77_experimental_time_input_set(
-        app_fsm->preset_time_input, &app_fsm->experimental_time_settings.preset_datetime);
+        app_fsm->preset_time_input, &preset_datetime);
     app_fsm->screen = AppScreenPresetTimeInput;
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewPresetTimeInput);
 }
