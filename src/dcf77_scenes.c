@@ -540,7 +540,7 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
-        return selected == Dcf77ExperimentalTimeSettingPreset;
+        return false;
     case InputKeyRight:
         if(selected == Dcf77ExperimentalTimeSettingEnabled) {
             dcf77_app_set_experimental_time_enabled(app_fsm, true);
@@ -573,7 +573,7 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
-        return selected == Dcf77ExperimentalTimeSettingPreset;
+        return false;
     case InputKeyOk:
         return selected == Dcf77ExperimentalTimeSettingPreset;
     default:

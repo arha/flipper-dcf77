@@ -190,11 +190,44 @@ static void test_frame_datetime_rollover(void) {
     assert(datetime.minute == 2U);
 }
 
-/*
-static void test_preset_second_alignment_placeholder(void) {
-    // Wire this in once TX sync starts from the virtual clock second instead of RTC second.
+static void test_current_frame_minute_zeroes_seconds(void) {
+    Dcf77ExperimentalTimeSettings settings;
+    Dcf77ExperimentalTimeRuntime runtime;
+    DateTime datetime;
+
+    dcf77_experimental_time_reset_settings(&settings, &fallback_datetime);
+    settings.enabled = true;
+    dcf77_experimental_time_seed_runtime(&runtime, &settings, &fallback_datetime);
+    dcf77_experimental_time_get_current_frame_minute(&settings, &runtime, &datetime);
+
+    assert(datetime.hour == fallback_datetime.hour);
+    assert(datetime.minute == fallback_datetime.minute);
+    assert(datetime.second == 0U);
 }
-*/
+
+static void test_preset_second_alignment(void) {
+    Dcf77ExperimentalTimeSettings settings;
+    Dcf77ExperimentalTimeRuntime runtime;
+
+    dcf77_experimental_time_reset_settings(&settings, &fallback_datetime);
+    settings.enabled = true;
+    settings.source = Dcf77ExperimentalTimeSourcePreset;
+    settings.preset_datetime = (DateTime){
+        .hour = 6,
+        .minute = 7,
+        .second = 58,
+        .day = 2,
+        .month = 4,
+        .year = 2026,
+        .weekday = 4,
+    };
+    dcf77_experimental_time_normalize_settings(&settings, &fallback_datetime);
+    dcf77_experimental_time_seed_runtime(&runtime, &settings, &fallback_datetime);
+
+    assert(dcf77_experimental_time_get_start_second(&runtime) == 58U);
+    dcf77_experimental_time_advance_runtime(&runtime);
+    assert(runtime.frame_index == 1U);
+}
 
 int main(void) {
     test_reset_settings();
@@ -206,6 +239,8 @@ int main(void) {
     test_frame_datetime_slowdown();
     test_frame_datetime_stop_time();
     test_frame_datetime_rollover();
+    test_current_frame_minute_zeroes_seconds();
+    test_preset_second_alignment();
 
     puts("test_experimental_time: ok");
     return 0;
