@@ -46,109 +46,6 @@ const char* const dcf77_bitnames[] = {
     "Year 6",       "Year 7",    "Year 8",    "Date P",   "End",
 };
 
-#define DCF77_SAVED_SIGNAL_COUNT_V7 7U
-#define DCF77_SAVED_SIGNAL_COUNT_V8 8U
-
-typedef struct {
-    uint8_t current_signal;
-    uint8_t lf_transmit_enabled;
-    uint8_t subghz_signal_mode;
-    uint8_t sound_enabled;
-    uint32_t signal_freqs[DCF77_SAVED_SIGNAL_COUNT_V7];
-} Dcf77SavedSettingsV4;
-
-typedef struct {
-    uint32_t lf_freq;
-    uint8_t lf_transmit_enabled;
-    uint8_t subghz_signal_mode;
-    uint8_t sound_enabled;
-} Dcf77SavedSettingsV3;
-
-typedef struct {
-    uint8_t current_signal;
-    uint8_t lf_transmit_enabled;
-    uint8_t subghz_transmit_enabled;
-    uint8_t subghz_fsk_tone_index;
-    uint8_t speaker_value_index;
-    uint8_t subghz_band_count;
-    uint16_t reserved;
-    uint32_t signal_freqs[DCF77_SAVED_SIGNAL_COUNT_V7];
-    uint32_t subghz_selected_band_start;
-    uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
-    uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
-} Dcf77SavedSettingsV5;
-
-typedef struct {
-    uint8_t current_signal;
-    uint8_t lf_transmit_enabled;
-    uint8_t subghz_signal_mode;
-    uint8_t subghz_fsk_tone_index;
-    uint8_t speaker_value_index;
-    uint8_t subghz_band_count;
-    uint16_t reserved;
-    uint32_t signal_freqs[DCF77_SAVED_SIGNAL_COUNT_V7];
-    uint32_t subghz_selected_band_start;
-    uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
-    uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
-} Dcf77SavedSettingsV6;
-
-typedef struct {
-    uint8_t current_signal;
-    uint8_t lf_transmit_enabled;
-    uint8_t subghz_signal_mode;
-    uint8_t subghz_fsk_tone_index;
-    uint8_t speaker_value_index;
-    uint8_t subghz_band_count;
-    uint8_t gpio_baseband_pin_number;
-    uint8_t gpio_rf_pin_number;
-    uint8_t gpio_rf_duty_cycle;
-    uint8_t led_color_index;
-    uint8_t screen_mode;
-    uint8_t reserved0;
-    uint32_t signal_freqs[DCF77_SAVED_SIGNAL_COUNT_V7];
-    uint32_t subghz_selected_band_start;
-    uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
-    uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
-} Dcf77SavedSettingsV7;
-
-typedef struct {
-    uint8_t current_signal;
-    uint8_t lf_transmit_enabled;
-    uint8_t subghz_signal_mode;
-    uint8_t subghz_fsk_tone_index;
-    uint8_t speaker_value_index;
-    uint8_t subghz_band_count;
-    uint8_t gpio_baseband_pin_number;
-    uint8_t gpio_rf_pin_number;
-    uint8_t gpio_rf_duty_cycle;
-    uint8_t led_color_index;
-    uint8_t screen_mode;
-    uint8_t reserved0;
-    uint32_t signal_freqs[DCF77_SAVED_SIGNAL_COUNT_V8];
-    uint32_t subghz_selected_band_start;
-    uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
-    uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
-} Dcf77SavedSettingsV8;
-
-typedef struct {
-    uint8_t current_signal;
-    uint8_t lf_transmit_enabled;
-    uint8_t subghz_signal_mode;
-    uint8_t subghz_fsk_tone_index;
-    uint8_t speaker_value_index;
-    uint8_t subghz_band_count;
-    uint8_t gpio_baseband_pin_number;
-    uint8_t gpio_rf_pin_number;
-    uint8_t gpio_rf_duty_cycle;
-    uint8_t led_color_index;
-    uint8_t screen_mode;
-    uint8_t reserved0;
-    uint32_t signal_freqs[RadioClockSignalCount];
-    uint32_t subghz_selected_band_start;
-    uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
-    uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
-} Dcf77SavedSettings;
-
 typedef struct {
     uint8_t current_signal;
     uint8_t lf_transmit_enabled;
@@ -174,7 +71,7 @@ typedef struct {
     uint8_t experimental_slowdown;
     uint16_t reserved2;
     DateTime experimental_preset_datetime;
-} Dcf77SavedSettingsV10;
+} Dcf77SavedSettings;
 
 #define DCF77_SETTINGS_DIR EXT_PATH("apps_data/dcf77")
 #define DCF77_SETTINGS_PATH EXT_PATH("apps_data/dcf77/settings.bin")
@@ -613,7 +510,7 @@ bool dcf77_app_settings_save(const AppFSM* app_fsm) {
         return false;
     }
 
-    Dcf77SavedSettingsV10 settings = {
+    Dcf77SavedSettings settings = {
         .current_signal = app_fsm->current_signal,
         .lf_transmit_enabled = app_fsm->lf_transmit_enabled ? 1 : 0,
         .subghz_signal_mode = app_fsm->subghz_signal_mode,
@@ -699,79 +596,12 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         .gpio_rf_duty_cycle = GPIO_RF_DUTY_CYCLE_DEFAULT,
         .led_color_index = Dcf77LedColorRed,
         .screen_mode = Dcf77ScreenModeDebug,
-    };
-    Dcf77SavedSettingsV10 settings_v10 = {
-        .current_signal = RadioClockSignalDcf77,
-        .lf_transmit_enabled = 1,
-        .subghz_signal_mode = SubGhzSignalModeDisabled,
-        .subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX,
-        .speaker_value_index = 0,
-        .subghz_band_count = 0,
-        .gpio_baseband_pin_number = GPIO_BASEBAND_PIN_DEFAULT,
-        .gpio_rf_pin_number = GPIO_RF_PIN_NONE,
-        .gpio_rf_duty_cycle = GPIO_RF_DUTY_CYCLE_DEFAULT,
-        .led_color_index = Dcf77LedColorRed,
-        .screen_mode = Dcf77ScreenModeDebug,
         .experimental_time_enabled = 0,
         .experimental_time_source = Dcf77ExperimentalTimeSourceFlipper,
         .experimental_stop_time = 0,
         .experimental_speedup = 1,
         .experimental_slowdown = 1,
         .experimental_preset_datetime = {0},
-    };
-    Dcf77SavedSettingsV7 settings_v7 = {
-        .current_signal = RadioClockSignalDcf77,
-        .lf_transmit_enabled = 1,
-        .subghz_signal_mode = SubGhzSignalModeDisabled,
-        .subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX,
-        .speaker_value_index = 0,
-        .subghz_band_count = 0,
-        .gpio_baseband_pin_number = GPIO_BASEBAND_PIN_DEFAULT,
-        .gpio_rf_pin_number = GPIO_RF_PIN_NONE,
-        .gpio_rf_duty_cycle = GPIO_RF_DUTY_CYCLE_DEFAULT,
-        .led_color_index = Dcf77LedColorRed,
-        .screen_mode = Dcf77ScreenModeDebug,
-    };
-    Dcf77SavedSettingsV8 settings_v8 = {
-        .current_signal = RadioClockSignalDcf77,
-        .lf_transmit_enabled = 1,
-        .subghz_signal_mode = SubGhzSignalModeDisabled,
-        .subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX,
-        .speaker_value_index = 0,
-        .subghz_band_count = 0,
-        .gpio_baseband_pin_number = GPIO_BASEBAND_PIN_DEFAULT,
-        .gpio_rf_pin_number = GPIO_RF_PIN_NONE,
-        .gpio_rf_duty_cycle = GPIO_RF_DUTY_CYCLE_DEFAULT,
-        .led_color_index = Dcf77LedColorRed,
-        .screen_mode = Dcf77ScreenModeDebug,
-    };
-    Dcf77SavedSettingsV6 settings_v6 = {
-        .current_signal = RadioClockSignalDcf77,
-        .lf_transmit_enabled = 1,
-        .subghz_signal_mode = SubGhzSignalModeDisabled,
-        .subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX,
-        .speaker_value_index = 0,
-        .subghz_band_count = 0,
-    };
-    Dcf77SavedSettingsV5 settings_v5 = {
-        .current_signal = RadioClockSignalDcf77,
-        .lf_transmit_enabled = 1,
-        .subghz_transmit_enabled = 0,
-        .subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX,
-        .speaker_value_index = 0,
-        .subghz_band_count = 0,
-    };
-    Dcf77SavedSettingsV4 settings_v4 = {
-        .current_signal = RadioClockSignalDcf77,
-        .lf_transmit_enabled = 1,
-        .subghz_signal_mode = 0,
-        .sound_enabled = 0,
-    };
-    Dcf77SavedSettingsV3 legacy_settings = {
-        .lf_freq = LF_FREQ_DEFAULT,
-        .lf_transmit_enabled = 1,
-        .subghz_signal_mode = 0,
-        .sound_enabled = 0,
     };
 
     dcf77_app_init_signal_defaults(app_fsm);
@@ -784,65 +614,8 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
     app_fsm->screen_mode = Dcf77ScreenModeDebug;
 
     if(saved_struct_load(
-           DCF77_SETTINGS_PATH,
-           &settings_v10,
-           sizeof(settings_v10),
-           DCF77_SETTINGS_MAGIC,
-           DCF77_SETTINGS_VERSION)) {
-        dcf77_app_restore_saved_signal_freqs(
-            app_fsm, settings_v10.signal_freqs, RadioClockSignalCount);
-        if(settings_v10.current_signal >= RadioClockSignalCount) {
-            settings_v10.current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->current_signal = (RadioClockSignal)settings_v10.current_signal;
-        if(radio_clock_visible_signal_index(app_fsm->current_signal) >=
-           radio_clock_visible_signal_count()) {
-            app_fsm->current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->lf_transmit_enabled = settings_v10.lf_transmit_enabled != 0;
-        if(settings_v10.subghz_signal_mode > SubGhzSignalModeFskFull) {
-            settings_v10.subghz_signal_mode = SubGhzSignalModeDisabled;
-        }
-        app_fsm->subghz_signal_mode = (SubGhzSignalMode)settings_v10.subghz_signal_mode;
-        if(settings_v10.subghz_fsk_tone_index >= dcf77_subghz_note_count()) {
-            settings_v10.subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
-        }
-        app_fsm->subghz_fsk_tone_index = settings_v10.subghz_fsk_tone_index;
-        if(settings_v10.speaker_value_index > dcf77_subghz_note_count()) {
-            settings_v10.speaker_value_index = 0;
-        }
-        app_fsm->speaker_value_index = settings_v10.speaker_value_index;
-        app_fsm->gpio_baseband_pin_number = settings_v10.gpio_baseband_pin_number;
-        app_fsm->gpio_rf_pin_number = settings_v10.gpio_rf_pin_number;
-        app_fsm->gpio_rf_duty_cycle = settings_v10.gpio_rf_duty_cycle;
-        app_fsm->led_color_index = settings_v10.led_color_index;
-        app_fsm->screen_mode = settings_v10.screen_mode;
-        app_fsm->experimental_time_settings.enabled = settings_v10.experimental_time_enabled != 0;
-        app_fsm->experimental_time_settings.source =
-            (Dcf77ExperimentalTimeSource)settings_v10.experimental_time_source;
-        app_fsm->experimental_time_settings.stop_time =
-            settings_v10.experimental_stop_time != 0;
-        app_fsm->experimental_time_settings.speedup = settings_v10.experimental_speedup;
-        app_fsm->experimental_time_settings.slowdown = settings_v10.experimental_slowdown;
-        app_fsm->experimental_time_settings.preset_datetime =
-            settings_v10.experimental_preset_datetime;
-        dcf77_experimental_time_normalize_settings(
-            &app_fsm->experimental_time_settings, &default_datetime);
-        dcf77_app_restore_saved_subghz_frequencies(
-            app_fsm,
-            settings_v10.subghz_band_starts,
-            settings_v10.subghz_band_freqs,
-            settings_v10.subghz_band_count,
-            settings_v10.subghz_selected_band_start);
-        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[app_fsm->current_signal]);
-    } else if(saved_struct_load(
-                  DCF77_SETTINGS_PATH,
-                  &settings,
-                  sizeof(settings),
-                  DCF77_SETTINGS_MAGIC,
-                  9)) {
-        dcf77_app_restore_saved_signal_freqs(
-            app_fsm, settings.signal_freqs, RadioClockSignalCount);
+           DCF77_SETTINGS_PATH, &settings, sizeof(settings), DCF77_SETTINGS_MAGIC, DCF77_SETTINGS_VERSION)) {
+        dcf77_app_restore_saved_signal_freqs(app_fsm, settings.signal_freqs, RadioClockSignalCount);
         if(settings.current_signal >= RadioClockSignalCount) {
             settings.current_signal = RadioClockSignalDcf77;
         }
@@ -869,6 +642,15 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         app_fsm->gpio_rf_duty_cycle = settings.gpio_rf_duty_cycle;
         app_fsm->led_color_index = settings.led_color_index;
         app_fsm->screen_mode = settings.screen_mode;
+        app_fsm->experimental_time_settings.enabled = settings.experimental_time_enabled != 0;
+        app_fsm->experimental_time_settings.source =
+            (Dcf77ExperimentalTimeSource)settings.experimental_time_source;
+        app_fsm->experimental_time_settings.stop_time = settings.experimental_stop_time != 0;
+        app_fsm->experimental_time_settings.speedup = settings.experimental_speedup;
+        app_fsm->experimental_time_settings.slowdown = settings.experimental_slowdown;
+        app_fsm->experimental_time_settings.preset_datetime = settings.experimental_preset_datetime;
+        dcf77_experimental_time_normalize_settings(
+            &app_fsm->experimental_time_settings, &default_datetime);
         dcf77_app_restore_saved_subghz_frequencies(
             app_fsm,
             settings.subghz_band_starts,
@@ -876,201 +658,6 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
             settings.subghz_band_count,
             settings.subghz_selected_band_start);
         dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[app_fsm->current_signal]);
-    } else if(saved_struct_load(
-                  DCF77_SETTINGS_PATH,
-                  &settings_v8,
-                  sizeof(settings_v8),
-                  DCF77_SETTINGS_MAGIC,
-                  8)) {
-        dcf77_app_restore_saved_signal_freqs(
-            app_fsm, settings_v8.signal_freqs, DCF77_SAVED_SIGNAL_COUNT_V8);
-        if(settings_v8.current_signal >= RadioClockSignalCount) {
-            settings_v8.current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->current_signal = (RadioClockSignal)settings_v8.current_signal;
-        if(radio_clock_visible_signal_index(app_fsm->current_signal) >=
-           radio_clock_visible_signal_count()) {
-            app_fsm->current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->lf_transmit_enabled = settings_v8.lf_transmit_enabled != 0;
-        if(settings_v8.subghz_signal_mode > SubGhzSignalModeFskFull) {
-            settings_v8.subghz_signal_mode = SubGhzSignalModeDisabled;
-        }
-        app_fsm->subghz_signal_mode = (SubGhzSignalMode)settings_v8.subghz_signal_mode;
-        if(settings_v8.subghz_fsk_tone_index >= dcf77_subghz_note_count()) {
-            settings_v8.subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
-        }
-        app_fsm->subghz_fsk_tone_index = settings_v8.subghz_fsk_tone_index;
-        if(settings_v8.speaker_value_index > dcf77_subghz_note_count()) {
-            settings_v8.speaker_value_index = 0;
-        }
-        app_fsm->speaker_value_index = settings_v8.speaker_value_index;
-        app_fsm->gpio_baseband_pin_number = settings_v8.gpio_baseband_pin_number;
-        app_fsm->gpio_rf_pin_number = settings_v8.gpio_rf_pin_number;
-        app_fsm->gpio_rf_duty_cycle = settings_v8.gpio_rf_duty_cycle;
-        app_fsm->led_color_index = settings_v8.led_color_index;
-        app_fsm->screen_mode = settings_v8.screen_mode;
-        dcf77_app_restore_saved_subghz_frequencies(
-            app_fsm,
-            settings_v8.subghz_band_starts,
-            settings_v8.subghz_band_freqs,
-            settings_v8.subghz_band_count,
-            settings_v8.subghz_selected_band_start);
-        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[app_fsm->current_signal]);
-    } else if(saved_struct_load(
-                  DCF77_SETTINGS_PATH,
-                  &settings_v7,
-                  sizeof(settings_v7),
-                  DCF77_SETTINGS_MAGIC,
-                  7)) {
-        dcf77_app_restore_saved_signal_freqs(
-            app_fsm, settings_v7.signal_freqs, DCF77_SAVED_SIGNAL_COUNT_V7);
-        if(settings_v7.current_signal >= RadioClockSignalCount) {
-            settings_v7.current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->current_signal = (RadioClockSignal)settings_v7.current_signal;
-        if(radio_clock_visible_signal_index(app_fsm->current_signal) >=
-           radio_clock_visible_signal_count()) {
-            app_fsm->current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->lf_transmit_enabled = settings_v7.lf_transmit_enabled != 0;
-        if(settings_v7.subghz_signal_mode > SubGhzSignalModeFskFull) {
-            settings_v7.subghz_signal_mode = SubGhzSignalModeDisabled;
-        }
-        app_fsm->subghz_signal_mode = (SubGhzSignalMode)settings_v7.subghz_signal_mode;
-        if(settings_v7.subghz_fsk_tone_index >= dcf77_subghz_note_count()) {
-            settings_v7.subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
-        }
-        app_fsm->subghz_fsk_tone_index = settings_v7.subghz_fsk_tone_index;
-        if(settings_v7.speaker_value_index > dcf77_subghz_note_count()) {
-            settings_v7.speaker_value_index = 0;
-        }
-        app_fsm->speaker_value_index = settings_v7.speaker_value_index;
-        app_fsm->gpio_baseband_pin_number = settings_v7.gpio_baseband_pin_number;
-        app_fsm->gpio_rf_pin_number = settings_v7.gpio_rf_pin_number;
-        app_fsm->gpio_rf_duty_cycle = settings_v7.gpio_rf_duty_cycle;
-        app_fsm->led_color_index = settings_v7.led_color_index;
-        app_fsm->screen_mode = settings_v7.screen_mode;
-        dcf77_app_restore_saved_subghz_frequencies(
-            app_fsm,
-            settings_v7.subghz_band_starts,
-            settings_v7.subghz_band_freqs,
-            settings_v7.subghz_band_count,
-            settings_v7.subghz_selected_band_start);
-        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[app_fsm->current_signal]);
-    } else if(saved_struct_load(
-                  DCF77_SETTINGS_PATH,
-                  &settings_v6,
-                  sizeof(settings_v6),
-                  DCF77_SETTINGS_MAGIC,
-                  6)) {
-        dcf77_app_restore_saved_signal_freqs(
-            app_fsm, settings_v6.signal_freqs, DCF77_SAVED_SIGNAL_COUNT_V7);
-        if(settings_v6.current_signal >= RadioClockSignalCount) {
-            settings_v6.current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->current_signal = (RadioClockSignal)settings_v6.current_signal;
-        if(radio_clock_visible_signal_index(app_fsm->current_signal) >=
-           radio_clock_visible_signal_count()) {
-            app_fsm->current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->lf_transmit_enabled = settings_v6.lf_transmit_enabled != 0;
-        if(settings_v6.subghz_signal_mode > SubGhzSignalModeFskFull) {
-            settings_v6.subghz_signal_mode = SubGhzSignalModeDisabled;
-        }
-        app_fsm->subghz_signal_mode = (SubGhzSignalMode)settings_v6.subghz_signal_mode;
-        if(settings_v6.subghz_fsk_tone_index >= dcf77_subghz_note_count()) {
-            settings_v6.subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
-        }
-        app_fsm->subghz_fsk_tone_index = settings_v6.subghz_fsk_tone_index;
-        if(settings_v6.speaker_value_index > dcf77_subghz_note_count()) {
-            settings_v6.speaker_value_index = 0;
-        }
-        app_fsm->speaker_value_index = settings_v6.speaker_value_index;
-        dcf77_app_restore_saved_subghz_frequencies(
-            app_fsm,
-            settings_v6.subghz_band_starts,
-            settings_v6.subghz_band_freqs,
-            settings_v6.subghz_band_count,
-            settings_v6.subghz_selected_band_start);
-        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[app_fsm->current_signal]);
-    } else if(saved_struct_load(
-                  DCF77_SETTINGS_PATH,
-                  &settings_v5,
-                  sizeof(settings_v5),
-                  DCF77_SETTINGS_MAGIC,
-                  5)) {
-        dcf77_app_restore_saved_signal_freqs(
-            app_fsm, settings_v5.signal_freqs, DCF77_SAVED_SIGNAL_COUNT_V7);
-        if(settings_v5.current_signal >= RadioClockSignalCount) {
-            settings_v5.current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->current_signal = (RadioClockSignal)settings_v5.current_signal;
-        if(radio_clock_visible_signal_index(app_fsm->current_signal) >=
-           radio_clock_visible_signal_count()) {
-            app_fsm->current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->lf_transmit_enabled = settings_v5.lf_transmit_enabled != 0;
-        app_fsm->subghz_signal_mode =
-            settings_v5.subghz_transmit_enabled ? SubGhzSignalModeFsk : SubGhzSignalModeDisabled;
-        if(settings_v5.subghz_fsk_tone_index >= dcf77_subghz_note_count()) {
-            settings_v5.subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
-        }
-        app_fsm->subghz_fsk_tone_index = settings_v5.subghz_fsk_tone_index;
-        if(settings_v5.speaker_value_index > dcf77_subghz_note_count()) {
-            settings_v5.speaker_value_index = 0;
-        }
-        app_fsm->speaker_value_index = settings_v5.speaker_value_index;
-        dcf77_app_restore_saved_subghz_frequencies(
-            app_fsm,
-            settings_v5.subghz_band_starts,
-            settings_v5.subghz_band_freqs,
-            settings_v5.subghz_band_count,
-            settings_v5.subghz_selected_band_start);
-        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[app_fsm->current_signal]);
-    } else if(saved_struct_load(
-                  DCF77_SETTINGS_PATH,
-                  &settings_v4,
-                  sizeof(settings_v4),
-                  DCF77_SETTINGS_MAGIC,
-                  4)) {
-        dcf77_app_restore_saved_signal_freqs(
-            app_fsm, settings_v4.signal_freqs, DCF77_SAVED_SIGNAL_COUNT_V7);
-        if(settings_v4.current_signal >= RadioClockSignalCount) {
-            settings_v4.current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->current_signal = (RadioClockSignal)settings_v4.current_signal;
-        if(radio_clock_visible_signal_index(app_fsm->current_signal) >=
-            radio_clock_visible_signal_count()) {
-            app_fsm->current_signal = RadioClockSignalDcf77;
-        }
-        app_fsm->lf_transmit_enabled = settings_v4.lf_transmit_enabled != 0;
-        if(settings_v4.subghz_signal_mode > SubGhzSignalModeFskFull) {
-            settings_v4.subghz_signal_mode = SubGhzSignalModeDisabled;
-        }
-        app_fsm->subghz_signal_mode = (SubGhzSignalMode)settings_v4.subghz_signal_mode;
-        app_fsm->subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
-        app_fsm->speaker_value_index =
-            settings_v4.sound_enabled ? DCF77_SUBGHZ_DEFAULT_SPEAKER_VALUE_INDEX : 0;
-        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[app_fsm->current_signal]);
-    } else if(saved_struct_load(
-                  DCF77_SETTINGS_PATH,
-                  &legacy_settings,
-                  sizeof(legacy_settings),
-                  DCF77_SETTINGS_MAGIC,
-                  3)) {
-        app_fsm->current_signal = RadioClockSignalDcf77;
-        app_fsm->signal_freqs[RadioClockSignalDcf77] = legacy_settings.lf_freq;
-        app_fsm->signal_freqs[RadioClockSignalTest] = legacy_settings.lf_freq;
-        app_fsm->lf_transmit_enabled = legacy_settings.lf_transmit_enabled != 0;
-        if(legacy_settings.subghz_signal_mode > SubGhzSignalModeFskFull) {
-            legacy_settings.subghz_signal_mode = SubGhzSignalModeDisabled;
-        }
-        app_fsm->subghz_signal_mode = (SubGhzSignalMode)legacy_settings.subghz_signal_mode;
-        app_fsm->subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
-        app_fsm->speaker_value_index =
-            legacy_settings.sound_enabled ? DCF77_SUBGHZ_DEFAULT_SPEAKER_VALUE_INDEX : 0;
-        dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[RadioClockSignalDcf77]);
     } else {
         app_fsm->current_signal = RadioClockSignalDcf77;
         app_fsm->lf_transmit_enabled = true;
