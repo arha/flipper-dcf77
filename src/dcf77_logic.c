@@ -68,6 +68,25 @@ static void dcf77_logic_prepare_frame_buffers(
     memcpy(waveforms_out, frame->waveforms, sizeof(frame->waveforms));
 }
 
+void dcf77_logic_prepare_scratch_frame(AppFSM* app_fsm, const DateTime* dt) {
+    DateTime protocol_dt;
+    RadioClockProtocolTime protocol_time;
+
+    dcf77_logic_get_protocol_datetime(app_fsm->current_signal, dt, &protocol_dt);
+    dcf77_logic_build_protocol_time(&protocol_dt, &protocol_time);
+    radio_clock_protocol_prepare_frame(app_fsm->current_signal, &dcf77_protocol_frame_scratch, &protocol_time);
+}
+
+void dcf77_logic_commit_scratch_as_next(AppFSM* app_fsm, const DateTime* dt) {
+    app_fsm->next_minute_dt = *dt;
+    memcpy(app_fsm->next_message, dcf77_protocol_frame_scratch.encoded, sizeof(app_fsm->next_message));
+    memcpy(app_fsm->next_pulse_frame, dcf77_protocol_frame_scratch.pulses, sizeof(app_fsm->next_pulse_frame));
+    memcpy(
+        app_fsm->next_waveform_frame,
+        dcf77_protocol_frame_scratch.waveforms,
+        sizeof(app_fsm->next_waveform_frame));
+}
+
 void dcf77_logic_init(AppFSM* app_fsm) {
     app_fsm->bit_number = 0;
     app_fsm->bit_value = 0;
@@ -79,6 +98,8 @@ void dcf77_logic_init(AppFSM* app_fsm) {
     app_fsm->scheduler_ready = false;
     app_fsm->scheduler_synced = false;
     app_fsm->startup_marker_wrap_pending = false;
+    app_fsm->next_minute_prepare_pending = false;
+    app_fsm->next_minute_ready = false;
 }
 
 void dcf77_logic_prepare_minute(AppFSM* app_fsm, const DateTime* dt, bool as_next_minute) {

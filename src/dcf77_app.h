@@ -175,6 +175,8 @@ typedef struct AppFSM {
     volatile bool scheduler_ready;
     volatile bool scheduler_synced;
     volatile bool startup_marker_wrap_pending;
+    volatile bool next_minute_prepare_pending;
+    volatile bool next_minute_ready;
     FuriTimer* test_timer;
     uint8_t test_phase;
 

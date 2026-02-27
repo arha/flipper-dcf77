@@ -18,6 +18,7 @@ void dcf77_debug_sync_frame(AppFSM* app_fsm);
 bool dcf77_wait_for_next_second(DateTime* dt);
 void dcf77_timing_start(AppFSM* app_fsm);
 void dcf77_timing_stop(AppFSM* app_fsm);
+void dcf77_prepare_pending_minute(AppFSM* app_fsm);
 
 void dcf77_lf_set_frequency(AppFSM* app_fsm, uint32_t freq);
 void dcf77_lf_apply_output(const AppFSM* app_fsm);

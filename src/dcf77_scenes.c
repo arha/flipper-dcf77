@@ -301,6 +301,8 @@ static void dcf77_prepare_tx_minute_frames(AppFSM* app_fsm, const DateTime* rtc_
         &next_minute);
     next_minute.second = 0U;
     dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
+    app_fsm->next_minute_ready = true;
+    app_fsm->next_minute_prepare_pending = false;
 }
 
 void dcf77_app_start_tx(AppFSM* app_fsm) {
@@ -368,6 +370,8 @@ void dcf77_app_stop_tx(AppFSM* app_fsm) {
     dcf77_app_sound_set(app_fsm, false);
     app_fsm->output_state = false;
     app_fsm->output_dirty = false;
+    app_fsm->next_minute_ready = false;
+    app_fsm->next_minute_prepare_pending = false;
     app_fsm->tx_active = false;
     dcf77_app_switch_to_menu(app_fsm);
 }
@@ -1070,6 +1074,10 @@ void dcf77_tick_callback(void* ctx) {
         dcf77_app_sound_set(app_fsm, app_fsm->speaker_value_index != 0 && output);
         dcf77_gpio_rf_sync_output(app_fsm);
         dcf77_subghz_sync_output(app_fsm);
+    }
+
+    if(app_fsm->tx_active && app_fsm->next_minute_prepare_pending) {
+        dcf77_prepare_pending_minute(app_fsm);
     }
 
     if(app_fsm->tx_active) {

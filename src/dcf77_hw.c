@@ -204,17 +204,13 @@ void dcf77_debug_sync_frame(AppFSM* app_fsm) {
     furi_delay_ms(500);
 }
 
-static void dcf77_prepare_following_minute(AppFSM* app_fsm) {
-    DateTime next_minute;
-
-    dcf77_experimental_time_advance_runtime(&app_fsm->experimental_time_runtime);
+static void dcf77_get_following_minute(const AppFSM* app_fsm, DateTime* next_minute) {
     dcf77_experimental_time_get_frame_datetime(
         &app_fsm->experimental_time_settings,
         &app_fsm->experimental_time_runtime,
         app_fsm->experimental_time_runtime.frame_index + 1U,
-        &next_minute);
-    next_minute.second = 0U;
-    dcf77_logic_prepare_minute(app_fsm, &next_minute, true);
+        next_minute);
+    next_minute->second = 0U;
 }
 
 static const RadioClockSecondWaveform* dcf77_scheduler_current_waveform(const AppFSM* app_fsm) {
@@ -259,9 +255,13 @@ static void dcf77_scheduler_advance_second(AppFSM* app_fsm) {
         app_fsm->scheduler_second = 0;
         if(app_fsm->startup_marker_wrap_pending) {
             app_fsm->startup_marker_wrap_pending = false;
-        } else {
+        } else if(app_fsm->next_minute_ready) {
             dcf77_logic_activate_next_minute(app_fsm);
-            dcf77_prepare_following_minute(app_fsm);
+            dcf77_experimental_time_advance_runtime(&app_fsm->experimental_time_runtime);
+            app_fsm->next_minute_ready = false;
+            app_fsm->next_minute_prepare_pending = true;
+        } else {
+            app_fsm->next_minute_prepare_pending = true;
         }
     }
 
@@ -378,6 +378,26 @@ void dcf77_timing_stop(AppFSM* app_fsm) {
     dcf77_scheduler_reset();
     furi_hal_interrupt_set_isr(FuriHalInterruptIdLpTim2, NULL, NULL);
     furi_hal_bus_disable(FuriHalBusLPTIM2);
+}
+
+void dcf77_prepare_pending_minute(AppFSM* app_fsm) {
+    DateTime next_minute;
+
+    if(!app_fsm->tx_active || !app_fsm->next_minute_prepare_pending ||
+       app_fsm->current_signal == RadioClockSignalTest) {
+        return;
+    }
+
+    dcf77_get_following_minute(app_fsm, &next_minute);
+    dcf77_logic_prepare_scratch_frame(app_fsm, &next_minute);
+
+    NVIC_DisableIRQ(LPTIM2_IRQn);
+    if(app_fsm->tx_active && app_fsm->next_minute_prepare_pending) {
+        dcf77_logic_commit_scratch_as_next(app_fsm, &next_minute);
+        app_fsm->next_minute_ready = true;
+        app_fsm->next_minute_prepare_pending = false;
+    }
+    NVIC_EnableIRQ(LPTIM2_IRQn);
 }
 
 void dcf77_hw_indicator_set(const AppFSM* app_fsm, bool status) {
