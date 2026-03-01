@@ -58,7 +58,7 @@ typedef struct {
     uint8_t gpio_rf_duty_cycle;
     uint8_t led_color_index;
     uint8_t screen_mode;
-    uint8_t reserved0;
+    uint8_t tx_ratio_x;
     uint32_t signal_freqs[RadioClockSignalCount];
     uint32_t subghz_selected_band_start;
     uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
@@ -66,7 +66,7 @@ typedef struct {
     uint8_t experimental_time_enabled;
     uint8_t experimental_time_source;
     uint8_t experimental_stop_time;
-    uint8_t reserved1;
+    uint8_t tx_ratio_y_index;
     uint8_t experimental_speedup;
     uint8_t experimental_slowdown;
     uint16_t reserved2;
@@ -175,6 +175,38 @@ void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm) {
         sizeof(app_fsm->experimental_slowdown_text),
         "%u",
         app_fsm->experimental_time_settings.slowdown);
+}
+
+uint8_t dcf77_app_get_tx_ratio_y(const AppFSM* app_fsm) {
+    return dcf77_tx_ratio_y_value(app_fsm->tx_ratio_y_index);
+}
+
+void dcf77_app_update_tx_ratio_texts(AppFSM* app_fsm) {
+    snprintf(app_fsm->tx_ratio_x_text, sizeof(app_fsm->tx_ratio_x_text), "%u", app_fsm->tx_ratio_x);
+    snprintf(
+        app_fsm->tx_ratio_y_text,
+        sizeof(app_fsm->tx_ratio_y_text),
+        "%u",
+        dcf77_app_get_tx_ratio_y(app_fsm));
+}
+
+void dcf77_app_set_tx_ratio_x(AppFSM* app_fsm, uint8_t x) {
+    app_fsm->tx_ratio_x = dcf77_tx_ratio_x_clamp(x, dcf77_app_get_tx_ratio_y(app_fsm));
+    dcf77_app_update_tx_ratio_texts(app_fsm);
+}
+
+void dcf77_app_set_tx_ratio_y_index(AppFSM* app_fsm, uint8_t y_index) {
+    if(y_index >= dcf77_tx_ratio_y_count()) {
+        y_index = 0U;
+    }
+
+    app_fsm->tx_ratio_y_index = y_index;
+    app_fsm->tx_ratio_x = dcf77_tx_ratio_x_clamp(app_fsm->tx_ratio_x, dcf77_app_get_tx_ratio_y(app_fsm));
+    dcf77_app_update_tx_ratio_texts(app_fsm);
+}
+
+bool dcf77_app_should_send_frame(const AppFSM* app_fsm, uint32_t frame_index) {
+    return dcf77_tx_ratio_should_send(frame_index, app_fsm->tx_ratio_x, dcf77_app_get_tx_ratio_y(app_fsm));
 }
 
 static void dcf77_app_init_subghz_bands(AppFSM* app_fsm) {
@@ -522,10 +554,12 @@ bool dcf77_app_settings_save(const AppFSM* app_fsm) {
         .gpio_rf_duty_cycle = app_fsm->gpio_rf_duty_cycle,
         .led_color_index = app_fsm->led_color_index,
         .screen_mode = app_fsm->screen_mode,
+        .tx_ratio_x = app_fsm->tx_ratio_x,
         .subghz_selected_band_start = app_fsm->subghz_band_starts[app_fsm->subghz_band_index],
         .experimental_time_enabled = app_fsm->experimental_time_settings.enabled ? 1U : 0U,
         .experimental_time_source = app_fsm->experimental_time_settings.source,
         .experimental_stop_time = app_fsm->experimental_time_settings.stop_time ? 1U : 0U,
+        .tx_ratio_y_index = app_fsm->tx_ratio_y_index,
         .experimental_speedup = app_fsm->experimental_time_settings.speedup,
         .experimental_slowdown = app_fsm->experimental_time_settings.slowdown,
         .experimental_preset_datetime = app_fsm->experimental_time_settings.preset_datetime,
@@ -596,6 +630,8 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         .gpio_rf_duty_cycle = GPIO_RF_DUTY_CYCLE_DEFAULT,
         .led_color_index = Dcf77LedColorRed,
         .screen_mode = Dcf77ScreenModeDebug,
+        .tx_ratio_x = 1U,
+        .tx_ratio_y_index = 0U,
         .experimental_time_enabled = 0,
         .experimental_time_source = Dcf77ExperimentalTimeSourceFlipper,
         .experimental_stop_time = 0,
@@ -612,6 +648,8 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
     app_fsm->gpio_rf_duty_cycle = GPIO_RF_DUTY_CYCLE_DEFAULT;
     app_fsm->led_color_index = Dcf77LedColorRed;
     app_fsm->screen_mode = Dcf77ScreenModeDebug;
+    app_fsm->tx_ratio_x = 1U;
+    app_fsm->tx_ratio_y_index = 0U;
 
     if(saved_struct_load(
            DCF77_SETTINGS_PATH, &settings, sizeof(settings), DCF77_SETTINGS_MAGIC, DCF77_SETTINGS_VERSION)) {
@@ -642,6 +680,10 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         app_fsm->gpio_rf_duty_cycle = settings.gpio_rf_duty_cycle;
         app_fsm->led_color_index = settings.led_color_index;
         app_fsm->screen_mode = settings.screen_mode;
+        app_fsm->tx_ratio_y_index = settings.tx_ratio_y_index;
+        dcf77_app_set_tx_ratio_y_index(app_fsm, app_fsm->tx_ratio_y_index);
+        app_fsm->tx_ratio_x = settings.tx_ratio_x;
+        dcf77_app_set_tx_ratio_x(app_fsm, app_fsm->tx_ratio_x);
         app_fsm->experimental_time_settings.enabled = settings.experimental_time_enabled != 0;
         app_fsm->experimental_time_settings.source =
             (Dcf77ExperimentalTimeSource)settings.experimental_time_source;
@@ -664,10 +706,13 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         app_fsm->subghz_signal_mode = SubGhzSignalModeDisabled;
         app_fsm->subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
         app_fsm->speaker_value_index = 0;
+        dcf77_app_set_tx_ratio_y_index(app_fsm, 0U);
+        dcf77_app_set_tx_ratio_x(app_fsm, 1U);
         dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[RadioClockSignalDcf77]);
     }
 
     dcf77_app_update_subghz_texts(app_fsm);
+    dcf77_app_update_tx_ratio_texts(app_fsm);
     dcf77_app_set_gpio_baseband_pin(app_fsm, app_fsm->gpio_baseband_pin_number);
     dcf77_app_set_gpio_rf_pin(app_fsm, app_fsm->gpio_rf_pin_number);
     dcf77_app_set_gpio_rf_duty_cycle(app_fsm, app_fsm->gpio_rf_duty_cycle);

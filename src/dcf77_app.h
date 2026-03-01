@@ -36,6 +36,7 @@
 #include "radio_clock_pulse.h"
 #include "radio_clock_protocol.h"
 #include "subghz_settings.h"
+#include "tx_ratio.h"
 
 // the TAG is used for displaying a relevant prefix in logs. update it.
 #define TAG "__ARHA_FLIPPERAPP"
@@ -195,10 +196,14 @@ typedef struct AppFSM {
     uint8_t gpio_baseband_pin_number;
     uint8_t gpio_rf_pin_number;
     uint8_t gpio_rf_pending_pin_number;
+    uint8_t tx_ratio_x;
+    uint8_t tx_ratio_y_index;
     uint8_t tx_progress_second;
     uint8_t gpio_rf_duty_cycle;
     uint8_t led_color_index;
     uint8_t screen_mode;
+    volatile bool tx_frame_enabled;
+    volatile bool next_tx_frame_enabled;
     uint32_t subghz_band_starts[DCF77_SUBGHZ_MAX_BANDS];
     uint32_t subghz_band_ends[DCF77_SUBGHZ_MAX_BANDS];
     uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
@@ -225,6 +230,8 @@ typedef struct AppFSM {
     VariableItem* lf_tx_enabled_item;
     VariableItem* lf_freq_item;
     VariableItem* lf_default_freq_item;
+    VariableItem* lf_tx_ratio_x_item;
+    VariableItem* lf_tx_ratio_y_item;
     VariableItem* experimental_time_enabled_item;
     VariableItem* experimental_time_source_item;
     VariableItem* experimental_preset_item;
@@ -246,6 +253,8 @@ typedef struct AppFSM {
     bool lf_transmit_enabled;
     bool speaker_active;
     char lf_freq_text[16];
+    char tx_ratio_x_text[4];
+    char tx_ratio_y_text[4];
     char experimental_preset_text[24];
     char experimental_speedup_text[4];
     char experimental_slowdown_text[4];
@@ -279,10 +288,15 @@ bool dcf77_app_settings_save(const AppFSM* app_fsm);
 void dcf77_app_apply_rf_settings(AppFSM* app_fsm);
 uint8_t dcf77_app_get_lf_freq_index(uint32_t freq);
 void dcf77_app_update_lf_freq_text(AppFSM* app_fsm);
+void dcf77_app_update_tx_ratio_texts(AppFSM* app_fsm);
 void dcf77_app_set_signal(AppFSM* app_fsm, RadioClockSignal signal);
 void dcf77_app_set_signal_frequency(AppFSM* app_fsm, uint32_t freq);
 void dcf77_app_restore_default_frequency(AppFSM* app_fsm);
 bool dcf77_app_signal_can_run(const AppFSM* app_fsm);
+void dcf77_app_set_tx_ratio_x(AppFSM* app_fsm, uint8_t x);
+void dcf77_app_set_tx_ratio_y_index(AppFSM* app_fsm, uint8_t y_index);
+uint8_t dcf77_app_get_tx_ratio_y(const AppFSM* app_fsm);
+bool dcf77_app_should_send_frame(const AppFSM* app_fsm, uint32_t frame_index);
 void dcf77_app_update_subghz_texts(AppFSM* app_fsm);
 void dcf77_app_set_subghz_signal_mode(AppFSM* app_fsm, SubGhzSignalMode mode);
 void dcf77_app_set_subghz_fsk_tone(AppFSM* app_fsm, uint8_t tone_index);

@@ -21,6 +21,8 @@ enum {
     Dcf77LfSettingTransmit,
     Dcf77LfSettingFrequency,
     Dcf77LfSettingDefaultFrequency,
+    Dcf77LfSettingTxRatioX,
+    Dcf77LfSettingTxRatioY,
 };
 
 enum {
@@ -65,6 +67,12 @@ static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
     variable_item_set_current_value_index(
         app_fsm->lf_freq_item, dcf77_app_get_lf_freq_index(app_fsm->lf_freq));
     variable_item_set_current_value_text(app_fsm->lf_freq_item, app_fsm->lf_freq_text);
+    variable_item_set_values_count(app_fsm->lf_tx_ratio_x_item, dcf77_app_get_tx_ratio_y(app_fsm));
+    variable_item_set_current_value_index(app_fsm->lf_tx_ratio_x_item, app_fsm->tx_ratio_x - 1U);
+    variable_item_set_current_value_text(app_fsm->lf_tx_ratio_x_item, app_fsm->tx_ratio_x_text);
+    variable_item_set_values_count(app_fsm->lf_tx_ratio_y_item, (uint8_t)dcf77_tx_ratio_y_count());
+    variable_item_set_current_value_index(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_index);
+    variable_item_set_current_value_text(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_text);
     with_view_model(
         variable_item_list_get_view(app_fsm->lf_settings),
         void * model,
@@ -319,6 +327,8 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
     if(app_fsm->current_signal == RadioClockSignalTest) {
         app_fsm->bit_number = 0;
         app_fsm->bit_value = 1;
+        app_fsm->tx_frame_enabled = true;
+        app_fsm->next_tx_frame_enabled = true;
         app_fsm->tx_progress_second = 0;
         app_fsm->tx_second_start_tick = furi_get_tick();
         app_fsm->tx_active = true;
@@ -333,6 +343,8 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
     DateTime dt;
     dcf77_wait_for_next_second(&dt);
     dcf77_prepare_tx_minute_frames(app_fsm, &dt);
+    app_fsm->tx_frame_enabled = dcf77_app_should_send_frame(app_fsm, 0U);
+    app_fsm->next_tx_frame_enabled = dcf77_app_should_send_frame(app_fsm, 1U);
     app_fsm->tx_start_second_offset =
         dcf77_experimental_time_get_start_second(&app_fsm->experimental_time_runtime);
 
@@ -372,6 +384,8 @@ void dcf77_app_stop_tx(AppFSM* app_fsm) {
     app_fsm->output_dirty = false;
     app_fsm->next_minute_ready = false;
     app_fsm->next_minute_prepare_pending = false;
+    app_fsm->tx_frame_enabled = false;
+    app_fsm->next_tx_frame_enabled = false;
     app_fsm->tx_active = false;
     dcf77_app_switch_to_menu(app_fsm);
 }
@@ -415,7 +429,7 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
     switch(event->key) {
     case InputKeyUp:
         if(selected == 0) {
-            selected = Dcf77LfSettingDefaultFrequency;
+            selected = Dcf77LfSettingTxRatioY;
         } else {
             selected--;
         }
@@ -423,7 +437,7 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
         return true;
     case InputKeyDown:
         selected++;
-        if(selected > Dcf77LfSettingDefaultFrequency) {
+        if(selected > Dcf77LfSettingTxRatioY) {
             selected = 0;
         }
         variable_item_list_set_selected_item(app_fsm->lf_settings, selected);
@@ -447,6 +461,18 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
             dcf77_app_settings_save(app_fsm);
             return true;
         }
+        if(selected == Dcf77LfSettingTxRatioX && app_fsm->tx_ratio_x > 1U) {
+            dcf77_app_set_tx_ratio_x(app_fsm, app_fsm->tx_ratio_x - 1U);
+            dcf77_lf_settings_sync(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77LfSettingTxRatioY && app_fsm->tx_ratio_y_index > 0U) {
+            dcf77_app_set_tx_ratio_y_index(app_fsm, app_fsm->tx_ratio_y_index - 1U);
+            dcf77_lf_settings_sync(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
         return selected == Dcf77LfSettingDefaultFrequency;
     case InputKeyRight:
         if(selected == Dcf77LfSettingSignal) {
@@ -464,6 +490,20 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
             dcf77_app_set_signal_frequency(app_fsm, app_fsm->lf_freq + LF_FREQ_STEP);
             dcf77_lf_settings_sync(app_fsm);
             dcf77_app_apply_rf_settings(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77LfSettingTxRatioX &&
+           app_fsm->tx_ratio_x < dcf77_app_get_tx_ratio_y(app_fsm)) {
+            dcf77_app_set_tx_ratio_x(app_fsm, app_fsm->tx_ratio_x + 1U);
+            dcf77_lf_settings_sync(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77LfSettingTxRatioY &&
+           app_fsm->tx_ratio_y_index + 1U < dcf77_tx_ratio_y_count()) {
+            dcf77_app_set_tx_ratio_y_index(app_fsm, app_fsm->tx_ratio_y_index + 1U);
+            dcf77_lf_settings_sync(app_fsm);
             dcf77_app_settings_save(app_fsm);
             return true;
         }

@@ -163,6 +163,10 @@ static void dcf77_scheduler_disable_compare(void) {
 }
 
 static void dcf77_apply_output(AppFSM* app_fsm, bool output) {
+    if(app_fsm->tx_active && app_fsm->current_signal != RadioClockSignalTest && !app_fsm->tx_frame_enabled) {
+        output = false;
+    }
+
     if(app_fsm->output_state == output) {
         return;
     }
@@ -258,6 +262,7 @@ static void dcf77_scheduler_advance_second(AppFSM* app_fsm) {
         } else if(app_fsm->next_minute_ready) {
             dcf77_logic_activate_next_minute(app_fsm);
             dcf77_experimental_time_advance_runtime(&app_fsm->experimental_time_runtime);
+            app_fsm->tx_frame_enabled = app_fsm->next_tx_frame_enabled;
             app_fsm->next_minute_ready = false;
             app_fsm->next_minute_prepare_pending = true;
         } else {
@@ -394,6 +399,8 @@ void dcf77_prepare_pending_minute(AppFSM* app_fsm) {
     NVIC_DisableIRQ(LPTIM2_IRQn);
     if(app_fsm->tx_active && app_fsm->next_minute_prepare_pending) {
         dcf77_logic_commit_scratch_as_next(app_fsm, &next_minute);
+        app_fsm->next_tx_frame_enabled =
+            dcf77_app_should_send_frame(app_fsm, app_fsm->experimental_time_runtime.frame_index + 1U);
         app_fsm->next_minute_ready = true;
         app_fsm->next_minute_prepare_pending = false;
     }

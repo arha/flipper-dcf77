@@ -13,6 +13,7 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 * Supports multiple time signals: DCF77, WWVB, MSF, JJY, BPC, BSF and HBG
 * Improved debugging: configurable GPIO output: baseband & RF, LED, buzzer and of course - SubGHZ output
 * GPIO baseband / RF output, LED preview and buzzer tone selection for debugging
+* Simulate bad reception (selective TX): can send only x/y frames, ie 1/3, 7/24, etc
 
 # technical details
 

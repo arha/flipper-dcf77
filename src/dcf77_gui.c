@@ -21,6 +21,8 @@ static void dcf77_tx_render_progress_bar(Canvas* const canvas, const AppFSM* app
     const uint8_t bar_x = 4U;
     const uint8_t fill_y = 58U;
     const uint8_t fill_height = 4U;
+    const bool frame_enabled =
+        app_fsm->current_signal == RadioClockSignalTest || app_fsm->tx_frame_enabled;
     uint8_t second = app_fsm->tx_progress_second;
     uint32_t elapsed_ms = 0U;
 
@@ -60,8 +62,10 @@ static void dcf77_tx_render_progress_bar(Canvas* const canvas, const AppFSM* app
     }
 
     canvas_draw_line(canvas, bar_x, fill_y + 1U, bar_x, fill_y + 2U);
-    if(fill_width > 2U) {
+    if(frame_enabled && fill_width > 2U) {
         canvas_draw_box(canvas, bar_x + 1U, fill_y, fill_width - 2U, fill_height);
+    } else if(fill_width > 2U) {
+        canvas_draw_line(canvas, bar_x + 1U, fill_y, bar_x + fill_width - 2U, fill_y);
     }
     canvas_draw_line(
         canvas,
@@ -346,6 +350,15 @@ void dcf77_gui_init(AppFSM* app_fsm) {
     app_fsm->lf_default_freq_item = variable_item_list_add(
         app_fsm->lf_settings, "Default frequency", 1, NULL, app_fsm);
     variable_item_set_current_value_text(app_fsm->lf_default_freq_item, "");
+
+    app_fsm->lf_tx_ratio_x_item =
+        variable_item_list_add(app_fsm->lf_settings, "tx x/y x=", 1, NULL, app_fsm);
+    variable_item_set_current_value_text(app_fsm->lf_tx_ratio_x_item, app_fsm->tx_ratio_x_text);
+
+    app_fsm->lf_tx_ratio_y_item = variable_item_list_add(
+        app_fsm->lf_settings, "tx x/y y=", (uint8_t)dcf77_tx_ratio_y_count(), NULL, app_fsm);
+    variable_item_set_current_value_index(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_index);
+    variable_item_set_current_value_text(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_text);
 
     variable_item_list_set_enter_callback(
         app_fsm->lf_settings, dcf77_lf_settings_enter_callback, app_fsm);
