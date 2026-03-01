@@ -43,6 +43,7 @@ typedef struct {
 } RadioClockProtocolOps;
 
 const RadioClockProtocolOps* radio_clock_protocol_get(RadioClockSignal signal);
+bool radio_clock_protocol_uses_following_minute(RadioClockSignal signal);
 const char* radio_clock_protocol_pulse_label(RadioClockPulse pulse);
 uint16_t radio_clock_protocol_day_of_year(uint16_t year, uint8_t month, uint8_t day);
 void radio_clock_protocol_prepare_frame(

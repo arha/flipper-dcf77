@@ -449,6 +449,21 @@ const RadioClockProtocolOps* radio_clock_protocol_get(RadioClockSignal signal) {
     }
 }
 
+bool radio_clock_protocol_uses_following_minute(RadioClockSignal signal) {
+    switch(signal) {
+    case RadioClockSignalDcf77:
+    case RadioClockSignalMsf:
+    case RadioClockSignalHbg:
+        return true;
+    case RadioClockSignalWwvb:
+    case RadioClockSignalJjy:
+    case RadioClockSignalBpc:
+    case RadioClockSignalBsf:
+    default:
+        return false;
+    }
+}
+
 const char* radio_clock_protocol_pulse_label(RadioClockPulse pulse) {
     switch(pulse) {
     case RadioClockPulseMsfA0B0:

@@ -365,12 +365,24 @@ static void test_hbg_start_pulse_variants(void) {
     assert(waveform_total_ticks(&noon_frame.waveforms[0]) == 32768U);
 }
 
+static void test_following_minute_semantics(void) {
+    assert(radio_clock_protocol_uses_following_minute(RadioClockSignalDcf77));
+    assert(radio_clock_protocol_uses_following_minute(RadioClockSignalMsf));
+    assert(radio_clock_protocol_uses_following_minute(RadioClockSignalHbg));
+
+    assert(!radio_clock_protocol_uses_following_minute(RadioClockSignalWwvb));
+    assert(!radio_clock_protocol_uses_following_minute(RadioClockSignalJjy));
+    assert(!radio_clock_protocol_uses_following_minute(RadioClockSignalBpc));
+    assert(!radio_clock_protocol_uses_following_minute(RadioClockSignalBsf));
+}
+
 int main(void) {
     test_dcf77_protocol_matches_known_frame();
     test_wwvb_protocol_uses_flipper_time_with_safe_aux_flags();
     test_wwvb_protocol_generates_safe_aux_frame();
     test_protocol_pulse_timing_and_phase_rules();
     test_hbg_start_pulse_variants();
+    test_following_minute_semantics();
     puts("test_radio_clock_protocol: OK");
     return 0;
 }

@@ -22,7 +22,7 @@ static void dcf77_logic_get_protocol_datetime(
     DateTime* protocol_dt) {
     *protocol_dt = *dt;
 
-    if(signal == RadioClockSignalMsf) {
+    if(radio_clock_protocol_uses_following_minute(signal)) {
         const uint32_t protocol_timestamp = datetime_datetime_to_timestamp(protocol_dt) + 60U;
         datetime_timestamp_to_datetime(protocol_timestamp, protocol_dt);
     }
