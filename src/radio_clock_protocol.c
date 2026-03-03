@@ -38,10 +38,6 @@
 
 static void radio_clock_waveform_clear(RadioClockMinuteFrame* frame, uint8_t second) {
     frame->waveforms[second].segment_count = 0U;
-    for(uint8_t i = 0; i < RADIO_CLOCK_MAX_SECOND_SEGMENTS; i++) {
-        frame->waveforms[second].segments[i].level = false;
-        frame->waveforms[second].segments[i].ticks = 0U;
-    }
 }
 
 static void radio_clock_waveform_add_segment(

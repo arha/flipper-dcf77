@@ -50,41 +50,58 @@ static void dcf77_logic_build_protocol_time(
     protocol_time->minute = dt->minute;
 }
 
-static void dcf77_logic_prepare_frame_buffers(
+static void dcf77_logic_prepare_protocol_frame(
     AppFSM* app_fsm,
-    const DateTime* dt,
+    const DateTime* protocol_dt,
+    RadioClockMinuteFrame* frame) {
+    RadioClockProtocolTime protocol_time;
+
+    dcf77_logic_build_protocol_time(protocol_dt, &protocol_time);
+    radio_clock_protocol_prepare_frame(app_fsm->current_signal, frame, &protocol_time);
+}
+
+static void dcf77_logic_copy_frame_buffers(
+    const RadioClockMinuteFrame* frame,
     uint8_t* message_out,
     RadioClockPulse* pulses_out,
     RadioClockSecondWaveform* waveforms_out) {
-    DateTime protocol_dt;
-    RadioClockProtocolTime protocol_time;
-    RadioClockMinuteFrame* frame = &dcf77_protocol_frame_scratch;
-
-    dcf77_logic_get_protocol_datetime(app_fsm->current_signal, dt, &protocol_dt);
-    dcf77_logic_build_protocol_time(&protocol_dt, &protocol_time);
-    radio_clock_protocol_prepare_frame(app_fsm->current_signal, frame, &protocol_time);
     memcpy(message_out, frame->encoded, sizeof(frame->encoded));
     memcpy(pulses_out, frame->pulses, sizeof(frame->pulses));
     memcpy(waveforms_out, frame->waveforms, sizeof(frame->waveforms));
 }
 
-void dcf77_logic_prepare_scratch_frame(AppFSM* app_fsm, const DateTime* dt) {
+static void dcf77_logic_prepare_frame_buffers(
+    AppFSM* app_fsm,
+    const DateTime* dt,
+    uint8_t* message_out,
+    RadioClockPulse* pulses_out,
+    RadioClockSecondWaveform* waveforms_out,
+    DateTime* protocol_dt_out) {
     DateTime protocol_dt;
-    RadioClockProtocolTime protocol_time;
 
     dcf77_logic_get_protocol_datetime(app_fsm->current_signal, dt, &protocol_dt);
-    dcf77_logic_build_protocol_time(&protocol_dt, &protocol_time);
-    radio_clock_protocol_prepare_frame(app_fsm->current_signal, &dcf77_protocol_frame_scratch, &protocol_time);
+    dcf77_logic_prepare_protocol_frame(app_fsm, &protocol_dt, &dcf77_protocol_frame_scratch);
+    dcf77_logic_copy_frame_buffers(
+        &dcf77_protocol_frame_scratch, message_out, pulses_out, waveforms_out);
+    if(protocol_dt_out != NULL) {
+        *protocol_dt_out = protocol_dt;
+    }
+}
+
+void dcf77_logic_prepare_scratch_frame(AppFSM* app_fsm, const DateTime* dt) {
+    DateTime protocol_dt;
+
+    dcf77_logic_get_protocol_datetime(app_fsm->current_signal, dt, &protocol_dt);
+    dcf77_logic_prepare_protocol_frame(app_fsm, &protocol_dt, &dcf77_protocol_frame_scratch);
 }
 
 void dcf77_logic_commit_scratch_as_next(AppFSM* app_fsm, const DateTime* dt) {
     app_fsm->next_minute_dt = *dt;
-    memcpy(app_fsm->next_message, dcf77_protocol_frame_scratch.encoded, sizeof(app_fsm->next_message));
-    memcpy(app_fsm->next_pulse_frame, dcf77_protocol_frame_scratch.pulses, sizeof(app_fsm->next_pulse_frame));
-    memcpy(
-        app_fsm->next_waveform_frame,
-        dcf77_protocol_frame_scratch.waveforms,
-        sizeof(app_fsm->next_waveform_frame));
+    dcf77_logic_copy_frame_buffers(
+        &dcf77_protocol_frame_scratch,
+        app_fsm->next_message,
+        app_fsm->next_pulse_frame,
+        app_fsm->next_waveform_frame);
 }
 
 void dcf77_logic_init(AppFSM* app_fsm) {
@@ -110,13 +127,18 @@ void dcf77_logic_prepare_minute(AppFSM* app_fsm, const DateTime* dt, bool as_nex
             dt,
             app_fsm->next_message,
             app_fsm->next_pulse_frame,
-            app_fsm->next_waveform_frame);
+            app_fsm->next_waveform_frame,
+            NULL);
     } else {
+        DateTime protocol_dt;
         app_fsm->current_minute_dt = *dt;
         dcf77_logic_prepare_frame_buffers(
-            app_fsm, dt, app_fsm->dcf77_message, app_fsm->pulse_frame, app_fsm->waveform_frame);
-        DateTime protocol_dt;
-        dcf77_logic_get_protocol_datetime(app_fsm->current_signal, dt, &protocol_dt);
+            app_fsm,
+            dt,
+            app_fsm->dcf77_message,
+            app_fsm->pulse_frame,
+            app_fsm->waveform_frame,
+            &protocol_dt);
         dcf77_logic_set_tx_fields(app_fsm, &protocol_dt);
     }
 }
