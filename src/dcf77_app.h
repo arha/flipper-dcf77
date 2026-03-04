@@ -130,12 +130,12 @@ typedef enum {
 
 typedef struct AppFSM {
     uint32_t lf_freq;
-    RadioClockSignal current_signal;
+    uint8_t current_signal;
     uint32_t signal_freqs[RadioClockSignalCount];
 
     uint8_t bit_number; // 0 - 59
     uint8_t bit_value;  // 0/1/marker for byte-debug screens
-    RadioClockPulse current_pulse;
+    uint8_t current_pulse;
     volatile bool output_state;
     volatile bool output_dirty;
     uint8_t dcf77_message[8];
@@ -165,7 +165,7 @@ typedef struct AppFSM {
     volatile bool subghz_async_tx;
     volatile bool subghz_output;
     volatile bool subghz_tone_phase;
-    SubGhzSignalMode subghz_signal_mode;
+    uint8_t subghz_signal_mode;
     uint8_t subghz_fsk_tone_index;
     uint8_t subghz_band_count;
     uint8_t subghz_band_index;
@@ -185,7 +185,7 @@ typedef struct AppFSM {
     uint32_t subghz_band_ends[DCF77_SUBGHZ_MAX_BANDS];
     uint32_t subghz_band_freqs[DCF77_SUBGHZ_MAX_BANDS];
     bool tx_active;
-    AppScreen screen;
+    uint8_t screen;
     uint32_t startup_deadline_tick;
     uint32_t last_tx_refresh_tick;
     uint32_t tx_second_start_tick;

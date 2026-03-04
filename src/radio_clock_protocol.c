@@ -108,6 +108,46 @@ static void radio_clock_waveform_set_positive_symbol(
         frame, second, false, (uint16_t)(RADIO_CLOCK_FULL_SECOND_TICKS - high_ticks));
 }
 
+static uint16_t radio_clock_waveform_pair_low_ticks(
+    RadioClockPulse pulse,
+    uint16_t pair00_ticks,
+    uint16_t pair01_ticks,
+    uint16_t pair10_ticks,
+    uint16_t pair11_ticks) {
+    switch(pulse) {
+    case RadioClockPulsePair01:
+        return pair01_ticks;
+    case RadioClockPulsePair10:
+        return pair10_ticks;
+    case RadioClockPulsePair11:
+        return pair11_ticks;
+    case RadioClockPulsePair00:
+    default:
+        return pair00_ticks;
+    }
+}
+
+static void radio_clock_waveform_set_pair_symbol(
+    RadioClockMinuteFrame* frame,
+    uint8_t second,
+    RadioClockPulse pulse,
+    uint16_t pair00_ticks,
+    uint16_t pair01_ticks,
+    uint16_t pair10_ticks,
+    uint16_t pair11_ticks) {
+    if(pulse == RadioClockPulseMarker) {
+        radio_clock_waveform_set_ook_symbol(frame, second, RadioClockPulseMarker, 0U);
+        return;
+    }
+
+    radio_clock_waveform_set_ook_symbol(
+        frame,
+        second,
+        pulse,
+        radio_clock_waveform_pair_low_ticks(
+            pulse, pair00_ticks, pair01_ticks, pair10_ticks, pair11_ticks));
+}
+
 static RadioClockPulse radio_clock_msf_symbol(bool bit_a, bool bit_b) {
     if(bit_a) {
         return bit_b ? RadioClockPulseMsfA1B1 : RadioClockPulseMsfA1B0;
@@ -332,28 +372,14 @@ static void bpc_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockProt
         time->weekday);
 
     for(uint8_t second = 0; second < RADIO_CLOCK_FRAME_SECONDS; second++) {
-        switch(frame->pulses[second]) {
-        case RadioClockPulsePair01:
-            radio_clock_waveform_set_ook_symbol(
-                frame, second, RadioClockPulsePair01, RADIO_CLOCK_BPC_01_LOW_TICKS);
-            break;
-        case RadioClockPulsePair10:
-            radio_clock_waveform_set_ook_symbol(
-                frame, second, RadioClockPulsePair10, RADIO_CLOCK_BPC_10_LOW_TICKS);
-            break;
-        case RadioClockPulsePair11:
-            radio_clock_waveform_set_ook_symbol(
-                frame, second, RadioClockPulsePair11, RADIO_CLOCK_BPC_11_LOW_TICKS);
-            break;
-        case RadioClockPulseMarker:
-            radio_clock_waveform_set_ook_symbol(frame, second, RadioClockPulseMarker, 0U);
-            break;
-        case RadioClockPulsePair00:
-        default:
-            radio_clock_waveform_set_ook_symbol(
-                frame, second, RadioClockPulsePair00, RADIO_CLOCK_BPC_00_LOW_TICKS);
-            break;
-        }
+        radio_clock_waveform_set_pair_symbol(
+            frame,
+            second,
+            frame->pulses[second],
+            RADIO_CLOCK_BPC_00_LOW_TICKS,
+            RADIO_CLOCK_BPC_01_LOW_TICKS,
+            RADIO_CLOCK_BPC_10_LOW_TICKS,
+            RADIO_CLOCK_BPC_11_LOW_TICKS);
     }
 }
 
@@ -372,28 +398,14 @@ static void bsf_prepare_frame(RadioClockMinuteFrame* frame, const RadioClockProt
         false);
 
     for(uint8_t second = 0; second < RADIO_CLOCK_FRAME_SECONDS; second++) {
-        switch(frame->pulses[second]) {
-        case RadioClockPulsePair01:
-            radio_clock_waveform_set_ook_symbol(
-                frame, second, RadioClockPulsePair01, RADIO_CLOCK_BSF_01_LOW_TICKS);
-            break;
-        case RadioClockPulsePair10:
-            radio_clock_waveform_set_ook_symbol(
-                frame, second, RadioClockPulsePair10, RADIO_CLOCK_BSF_10_LOW_TICKS);
-            break;
-        case RadioClockPulsePair11:
-            radio_clock_waveform_set_ook_symbol(
-                frame, second, RadioClockPulsePair11, RADIO_CLOCK_BSF_11_LOW_TICKS);
-            break;
-        case RadioClockPulseMarker:
-            radio_clock_waveform_set_ook_symbol(frame, second, RadioClockPulseMarker, 0U);
-            break;
-        case RadioClockPulsePair00:
-        default:
-            radio_clock_waveform_set_ook_symbol(
-                frame, second, RadioClockPulsePair00, RADIO_CLOCK_BSF_00_LOW_TICKS);
-            break;
-        }
+        radio_clock_waveform_set_pair_symbol(
+            frame,
+            second,
+            frame->pulses[second],
+            RADIO_CLOCK_BSF_00_LOW_TICKS,
+            RADIO_CLOCK_BSF_01_LOW_TICKS,
+            RADIO_CLOCK_BSF_10_LOW_TICKS,
+            RADIO_CLOCK_BSF_11_LOW_TICKS);
     }
 }
 
