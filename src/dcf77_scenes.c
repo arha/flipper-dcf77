@@ -1017,17 +1017,9 @@ bool dcf77_tx_input_callback(InputEvent* event, void* ctx) {
 
     switch(event->key) {
     case InputKeyDown:
-        app_fsm->last_key = KeyDown;
-        return true;
     case InputKeyRight:
-        app_fsm->last_key = KeyRight;
-        return true;
     case InputKeyLeft:
-        app_fsm->last_key = KeyLeft;
-        return true;
     case InputKeyOk:
-        app_fsm->last_key = KeyOK;
-        app_fsm->counter = -5;
         return true;
     case InputKeyBack:
         notification_message_block(app_fsm->notification, &seq_c_minor);

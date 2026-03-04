@@ -62,25 +62,6 @@
 // #define TIME_ONE 5
 
 typedef enum {
-    KeyNone,
-    KeyUp,
-    KeyRight,
-    KeyDown,
-    KeyLeft,
-    KeyOK
-} KeyCode;
-
-
-typedef enum {
-    EventKeyPress,
-} EventType;
-
-typedef struct {
-    EventType type;
-    InputEvent input;
-} AppEvent;
-
-typedef enum {
     AppScreenStartup,
     AppScreenMenu,
     AppScreenTx,
@@ -148,10 +129,6 @@ typedef enum {
 } Dcf77ScreenMode;
 
 typedef struct AppFSM {
-    uint16_t len;
-    KeyCode last_key;
-
-    int counter;
     uint32_t lf_freq;
     RadioClockSignal current_signal;
     uint32_t signal_freqs[RadioClockSignalCount];
