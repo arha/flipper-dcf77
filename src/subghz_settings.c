@@ -38,6 +38,12 @@ static const uint32_t dcf77_subghz_note_freqs_millihz[] = {
     698456, /* F5 */
 };
 
+static const uint16_t dcf77_subghz_note_half_periods_us[] = {
+    4545U, 4290U, 4050U, 3822U, 3608U, 3405U, 3214U, 3034U, 2863U, 2703U, 2551U,
+    2408U, 2273U, 2145U, 2025U, 1911U, 1804U, 1703U, 1607U, 1517U, 1432U, 1351U,
+    1276U, 1204U, 1136U, 1073U, 1012U, 956U,  902U,  851U,  804U,  758U,  716U,
+};
+
 size_t dcf77_subghz_note_count(void) {
     return sizeof(dcf77_subghz_note_freqs_millihz) / sizeof(dcf77_subghz_note_freqs_millihz[0]);
 }
@@ -55,8 +61,11 @@ float dcf77_subghz_note_freq_hz(size_t index) {
 }
 
 uint32_t dcf77_subghz_note_half_period_us(size_t index) {
-    const uint32_t milli_hz = dcf77_subghz_note_freq_millihz(index);
-    return (500000000U + (milli_hz / 2U)) / milli_hz;
+    if(index >= dcf77_subghz_note_count()) {
+        index = 0;
+    }
+
+    return dcf77_subghz_note_half_periods_us[index];
 }
 
 void dcf77_subghz_format_note_text(char* buffer, size_t buffer_size, size_t index) {

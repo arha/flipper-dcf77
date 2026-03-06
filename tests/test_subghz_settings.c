@@ -12,6 +12,9 @@ static void test_note_table_boundaries_and_text(void) {
     assert(dcf77_subghz_note_count() == 33U);
     assert(dcf77_subghz_note_freq_millihz(0) == 110000U);
     assert(dcf77_subghz_note_freq_millihz(dcf77_subghz_note_count() - 1U) == 698456U);
+    assert(dcf77_subghz_note_half_period_us(0) == 4545U);
+    assert(dcf77_subghz_note_half_period_us(12) == 2273U);
+    assert(dcf77_subghz_note_half_period_us(dcf77_subghz_note_count() - 1U) == 716U);
 
     dcf77_subghz_format_note_text(text, sizeof(text), 0);
     assert(strcmp(text, "110") == 0);
