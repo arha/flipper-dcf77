@@ -445,7 +445,6 @@ void dcf77_app_set_subghz_signal_mode(AppFSM* app_fsm, SubGhzSignalMode mode) {
     }
 
     app_fsm->subghz_signal_mode = mode;
-    dcf77_app_update_experimental_time_texts(app_fsm);
     dcf77_app_update_subghz_texts(app_fsm);
 }
 
