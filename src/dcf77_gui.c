@@ -416,6 +416,12 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         app_fsm->subghz_settings, "Frequency", 1, NULL, app_fsm);
     app_fsm->subghz_manual_item =
         variable_item_list_add(app_fsm->subghz_settings, "KHz", 1, NULL, app_fsm);
+    app_fsm->subghz_timeout_item = variable_item_list_add(
+        app_fsm->subghz_settings,
+        "TX Timeout sec",
+        (uint8_t)dcf77_subghz_tx_timeout_count(),
+        NULL,
+        app_fsm);
     variable_item_list_set_enter_callback(
         app_fsm->subghz_settings, dcf77_subghz_settings_enter_callback, app_fsm);
     view_set_context(variable_item_list_get_view(app_fsm->subghz_settings), app_fsm);

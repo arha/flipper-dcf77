@@ -44,6 +44,24 @@ static const uint16_t dcf77_subghz_note_half_periods_us[] = {
     1276U, 1204U, 1136U, 1073U, 1012U, 956U,  902U,  851U,  804U,  758U,  716U,
 };
 
+static const char* const dcf77_subghz_tx_timeout_text[] = {
+    "1s",
+    "5s",
+    "10s",
+    "15s",
+    "30s",
+    "60s",
+    "90s",
+    "120s",
+    "5min",
+    "10min",
+    "30min",
+};
+
+static const uint32_t dcf77_subghz_tx_timeout_seconds_values[] = {
+    1U, 5U, 10U, 15U, 30U, 60U, 90U, 120U, 300U, 600U, 1800U,
+};
+
 size_t dcf77_subghz_note_count(void) {
     return sizeof(dcf77_subghz_note_freqs_millihz) / sizeof(dcf77_subghz_note_freqs_millihz[0]);
 }
@@ -66,6 +84,41 @@ uint32_t dcf77_subghz_note_half_period_us(size_t index) {
     }
 
     return dcf77_subghz_note_half_periods_us[index];
+}
+
+size_t dcf77_subghz_tx_timeout_count(void) {
+    return sizeof(dcf77_subghz_tx_timeout_seconds_values) /
+           sizeof(dcf77_subghz_tx_timeout_seconds_values[0]);
+}
+
+uint32_t dcf77_subghz_tx_timeout_seconds(size_t index) {
+    if(index >= dcf77_subghz_tx_timeout_count()) {
+        index = dcf77_subghz_tx_timeout_default_index();
+    }
+
+    return dcf77_subghz_tx_timeout_seconds_values[index];
+}
+
+uint8_t dcf77_subghz_tx_timeout_index_for_seconds(uint32_t seconds) {
+    for(size_t i = 0; i < dcf77_subghz_tx_timeout_count(); i++) {
+        if(dcf77_subghz_tx_timeout_seconds_values[i] == seconds) {
+            return (uint8_t)i;
+        }
+    }
+
+    return dcf77_subghz_tx_timeout_default_index();
+}
+
+uint8_t dcf77_subghz_tx_timeout_default_index(void) {
+    return 8U;
+}
+
+const char* dcf77_subghz_tx_timeout_label(size_t index) {
+    if(index >= dcf77_subghz_tx_timeout_count()) {
+        index = dcf77_subghz_tx_timeout_default_index();
+    }
+
+    return dcf77_subghz_tx_timeout_text[index];
 }
 
 void dcf77_subghz_format_note_text(char* buffer, size_t buffer_size, size_t index) {

@@ -40,6 +40,7 @@ enum {
     Dcf77SubGhzSettingBand,
     Dcf77SubGhzSettingFrequency,
     Dcf77SubGhzSettingManualFrequency,
+    Dcf77SubGhzSettingTimeout,
 };
 
 enum {
@@ -163,6 +164,11 @@ static void dcf77_subghz_settings_sync(AppFSM* app_fsm) {
         app_fsm->subghz_frequency_item, app_fsm->subghz_frequency_step_text);
     variable_item_set_current_value_index(app_fsm->subghz_manual_item, 0);
     variable_item_set_current_value_text(app_fsm->subghz_manual_item, app_fsm->subghz_manual_text);
+    variable_item_set_values_count(
+        app_fsm->subghz_timeout_item, (uint8_t)dcf77_subghz_tx_timeout_count());
+    variable_item_set_current_value_index(
+        app_fsm->subghz_timeout_item, app_fsm->subghz_tx_timeout_index);
+    variable_item_set_current_value_text(app_fsm->subghz_timeout_item, app_fsm->subghz_timeout_text);
     with_view_model(
         variable_item_list_get_view(app_fsm->subghz_settings),
         void * model,
@@ -331,6 +337,7 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
         app_fsm->next_tx_frame_enabled = true;
         app_fsm->tx_progress_second = 0;
         app_fsm->tx_second_start_tick = furi_get_tick();
+        app_fsm->tx_session_start_tick = app_fsm->tx_second_start_tick;
         app_fsm->tx_active = true;
         dcf77_timing_start(app_fsm);
         dcf77_app_apply_rf_settings(app_fsm);
@@ -361,6 +368,7 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
 #endif
     app_fsm->tx_progress_second = app_fsm->bit_number;
     app_fsm->tx_second_start_tick = furi_get_tick();
+    app_fsm->tx_session_start_tick = app_fsm->tx_second_start_tick;
     dcf77_timing_start(app_fsm);
     dcf77_app_apply_rf_settings(app_fsm);
     app_fsm->screen = AppScreenTx;
@@ -653,6 +661,16 @@ uint32_t dcf77_preset_time_input_previous_callback(void* ctx) {
     return Dcf77ViewExperimentalTimeSettings;
 }
 
+static bool dcf77_subghz_tx_timeout_expired(const AppFSM* app_fsm, uint32_t now_tick) {
+    if(!app_fsm->tx_active || app_fsm->subghz_signal_mode == SubGhzSignalModeDisabled ||
+       dcf77_app_gpio_rf_enabled(app_fsm)) {
+        return false;
+    }
+
+    const uint32_t timeout_ms = dcf77_app_get_subghz_tx_timeout_seconds(app_fsm) * 1000U;
+    return (now_tick - app_fsm->tx_session_start_tick) >= furi_ms_to_ticks(timeout_ms);
+}
+
 bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx) {
     AppFSM* app_fsm = ctx;
     uint8_t selected;
@@ -666,7 +684,7 @@ bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx) {
     switch(event->key) {
     case InputKeyUp:
         if(selected == 0) {
-            selected = Dcf77SubGhzSettingManualFrequency;
+            selected = Dcf77SubGhzSettingTimeout;
         } else {
             selected--;
         }
@@ -674,7 +692,7 @@ bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx) {
         return true;
     case InputKeyDown:
         selected++;
-        if(selected > Dcf77SubGhzSettingManualFrequency) {
+        if(selected > Dcf77SubGhzSettingTimeout) {
             selected = 0;
         }
         variable_item_list_set_selected_item(app_fsm->subghz_settings, selected);
@@ -701,6 +719,11 @@ bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx) {
             dcf77_subghz_settings_apply(app_fsm);
             return true;
         }
+        if(selected == Dcf77SubGhzSettingTimeout && app_fsm->subghz_tx_timeout_index > 0U) {
+            dcf77_app_set_subghz_tx_timeout_index(app_fsm, app_fsm->subghz_tx_timeout_index - 1U);
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
         return selected == Dcf77SubGhzSettingManualFrequency;
     case InputKeyRight:
         if(selected == Dcf77SubGhzSettingTransmit &&
@@ -724,6 +747,12 @@ bool dcf77_subghz_settings_input_callback(InputEvent* event, void* ctx) {
         }
         if(selected == Dcf77SubGhzSettingFrequency) {
             dcf77_app_step_subghz_frequency(app_fsm, 1);
+            dcf77_subghz_settings_apply(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77SubGhzSettingTimeout &&
+           app_fsm->subghz_tx_timeout_index + 1U < dcf77_subghz_tx_timeout_count()) {
+            dcf77_app_set_subghz_tx_timeout_index(app_fsm, app_fsm->subghz_tx_timeout_index + 1U);
             dcf77_subghz_settings_apply(app_fsm);
             return true;
         }
@@ -1110,6 +1139,11 @@ void dcf77_tick_callback(void* ctx) {
 
     if(app_fsm->tx_active && app_fsm->next_minute_prepare_pending) {
         dcf77_prepare_pending_minute(app_fsm);
+    }
+
+    if(dcf77_subghz_tx_timeout_expired(app_fsm, now)) {
+        dcf77_app_stop_tx(app_fsm);
+        return;
     }
 
     if(app_fsm->tx_active) {

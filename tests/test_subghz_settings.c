@@ -51,10 +51,21 @@ static void test_frequency_step_rounding_and_clamping(void) {
     assert(dcf77_subghz_clamp_frequency(330000000U, &band) == 321950000U);
 }
 
+static void test_tx_timeout_choices(void) {
+    assert(dcf77_subghz_tx_timeout_count() == 11U);
+    assert(dcf77_subghz_tx_timeout_default_index() == 8U);
+    assert(dcf77_subghz_tx_timeout_seconds(0U) == 1U);
+    assert(dcf77_subghz_tx_timeout_seconds(8U) == 300U);
+    assert(dcf77_subghz_tx_timeout_seconds(dcf77_subghz_tx_timeout_count() - 1U) == 1800U);
+    assert(dcf77_subghz_tx_timeout_index_for_seconds(300U) == 8U);
+    assert(strcmp(dcf77_subghz_tx_timeout_label(8U), "5min") == 0);
+}
+
 int main(void) {
     test_note_table_boundaries_and_text();
     test_band_and_frequency_formatting();
     test_frequency_step_rounding_and_clamping();
+    test_tx_timeout_choices();
     puts("test_subghz_settings: OK");
     return 0;
 }

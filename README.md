@@ -24,6 +24,7 @@ Building a portable antenna for the LF/VLF band is left as an exercise for the r
 * The transmitter is not off between marks, but is still transmitting at reduced power. This is rarely visible outside Germany. FZ is also not doing this.
 * The antenna is highly mistuned for this purpose (sending 77500Hz on a 125000Hz aerial is about 33% off).
 * Debug mode: OOK (carrier) and FSK (FM) on 433.670 - tune in with a NFM receiver
+* SubGHz TX has a timeout / safety stop now, in case you forget to turn it off
 
 # todo
 

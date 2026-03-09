@@ -167,6 +167,7 @@ typedef struct AppFSM {
     volatile bool subghz_tone_phase;
     uint8_t subghz_signal_mode;
     uint8_t subghz_fsk_tone_index;
+    uint8_t subghz_tx_timeout_index;
     uint8_t subghz_band_count;
     uint8_t subghz_band_index;
     uint8_t speaker_value_index;
@@ -189,6 +190,7 @@ typedef struct AppFSM {
     uint32_t startup_deadline_tick;
     uint32_t last_tx_refresh_tick;
     uint32_t tx_second_start_tick;
+    uint32_t tx_session_start_tick;
 
     ViewDispatcher* view_dispatcher;
     Submenu* submenu;
@@ -220,6 +222,7 @@ typedef struct AppFSM {
     VariableItem* subghz_band_item;
     VariableItem* subghz_frequency_item;
     VariableItem* subghz_manual_item;
+    VariableItem* subghz_timeout_item;
     VariableItem* debug_gpio_baseband_item;
     VariableItem* debug_gpio_rf_item;
     VariableItem* debug_gpio_duty_item;
@@ -240,6 +243,7 @@ typedef struct AppFSM {
     char subghz_frequency_text[16];
     char subghz_frequency_step_text[24];
     char subghz_manual_text[16];
+    char subghz_timeout_text[8];
     char gpio_baseband_text[8];
     char gpio_rf_text[8];
     char gpio_rf_duty_text[8];
@@ -277,10 +281,12 @@ bool dcf77_app_should_send_frame(const AppFSM* app_fsm, uint32_t frame_index);
 void dcf77_app_update_subghz_texts(AppFSM* app_fsm);
 void dcf77_app_set_subghz_signal_mode(AppFSM* app_fsm, SubGhzSignalMode mode);
 void dcf77_app_set_subghz_fsk_tone(AppFSM* app_fsm, uint8_t tone_index);
+void dcf77_app_set_subghz_tx_timeout_index(AppFSM* app_fsm, uint8_t timeout_index);
 void dcf77_app_set_subghz_band(AppFSM* app_fsm, uint8_t band_index);
 void dcf77_app_set_subghz_frequency(AppFSM* app_fsm, uint32_t freq_hz);
 void dcf77_app_step_subghz_frequency(AppFSM* app_fsm, int8_t direction);
 uint32_t dcf77_app_get_subghz_frequency(const AppFSM* app_fsm);
+uint32_t dcf77_app_get_subghz_tx_timeout_seconds(const AppFSM* app_fsm);
 void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm);
 void dcf77_app_set_experimental_time_enabled(AppFSM* app_fsm, bool enabled);
 void dcf77_app_set_experimental_time_source(AppFSM* app_fsm, Dcf77ExperimentalTimeSource source);

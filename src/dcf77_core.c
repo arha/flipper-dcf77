@@ -69,7 +69,8 @@ typedef struct {
     uint8_t tx_ratio_y_index;
     uint8_t experimental_speedup;
     uint8_t experimental_slowdown;
-    uint16_t reserved2;
+    uint8_t subghz_tx_timeout_index_plus_one;
+    uint8_t reserved2;
     DateTime experimental_preset_datetime;
 } Dcf77SavedSettings;
 
@@ -131,6 +132,7 @@ static void dcf77_app_seed_subghz_defaults(AppFSM* app_fsm) {
 
     app_fsm->subghz_signal_mode = SubGhzSignalModeDisabled;
     app_fsm->subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
+    app_fsm->subghz_tx_timeout_index = dcf77_subghz_tx_timeout_default_index();
     app_fsm->speaker_value_index = 0;
 
     for(uint8_t i = 0; i < app_fsm->subghz_band_count; i++) {
@@ -265,6 +267,11 @@ void dcf77_app_update_subghz_texts(AppFSM* app_fsm) {
         app_fsm->subghz_manual_text,
         sizeof(app_fsm->subghz_manual_text),
         dcf77_app_get_subghz_frequency(app_fsm));
+    snprintf(
+        app_fsm->subghz_timeout_text,
+        sizeof(app_fsm->subghz_timeout_text),
+        "%s",
+        dcf77_subghz_tx_timeout_label(app_fsm->subghz_tx_timeout_index));
 }
 
 void dcf77_app_set_experimental_time_enabled(AppFSM* app_fsm, bool enabled) {
@@ -457,6 +464,19 @@ void dcf77_app_set_subghz_fsk_tone(AppFSM* app_fsm, uint8_t tone_index) {
     dcf77_app_update_subghz_texts(app_fsm);
 }
 
+void dcf77_app_set_subghz_tx_timeout_index(AppFSM* app_fsm, uint8_t timeout_index) {
+    if(timeout_index >= dcf77_subghz_tx_timeout_count()) {
+        timeout_index = dcf77_subghz_tx_timeout_default_index();
+    }
+
+    app_fsm->subghz_tx_timeout_index = timeout_index;
+    dcf77_app_update_subghz_texts(app_fsm);
+}
+
+uint32_t dcf77_app_get_subghz_tx_timeout_seconds(const AppFSM* app_fsm) {
+    return dcf77_subghz_tx_timeout_seconds(app_fsm->subghz_tx_timeout_index);
+}
+
 void dcf77_app_set_subghz_band(AppFSM* app_fsm, uint8_t band_index) {
     Dcf77SubGhzBand band;
 
@@ -561,6 +581,7 @@ bool dcf77_app_settings_save(const AppFSM* app_fsm) {
         .tx_ratio_y_index = app_fsm->tx_ratio_y_index,
         .experimental_speedup = app_fsm->experimental_time_settings.speedup,
         .experimental_slowdown = app_fsm->experimental_time_settings.slowdown,
+        .subghz_tx_timeout_index_plus_one = app_fsm->subghz_tx_timeout_index + 1U,
         .experimental_preset_datetime = app_fsm->experimental_time_settings.preset_datetime,
     };
 
@@ -636,6 +657,7 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         .experimental_stop_time = 0,
         .experimental_speedup = 1,
         .experimental_slowdown = 1,
+        .subghz_tx_timeout_index_plus_one = 0U,
         .experimental_preset_datetime = {0},
     };
 
@@ -670,6 +692,11 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
             settings.subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
         }
         app_fsm->subghz_fsk_tone_index = settings.subghz_fsk_tone_index;
+        dcf77_app_set_subghz_tx_timeout_index(
+            app_fsm,
+            (settings.subghz_tx_timeout_index_plus_one == 0U) ?
+                dcf77_subghz_tx_timeout_default_index() :
+                (uint8_t)(settings.subghz_tx_timeout_index_plus_one - 1U));
         if(settings.speaker_value_index > dcf77_subghz_note_count()) {
             settings.speaker_value_index = 0;
         }
@@ -704,6 +731,7 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         app_fsm->lf_transmit_enabled = true;
         app_fsm->subghz_signal_mode = SubGhzSignalModeDisabled;
         app_fsm->subghz_fsk_tone_index = DCF77_SUBGHZ_DEFAULT_FSK_TONE_INDEX;
+        dcf77_app_set_subghz_tx_timeout_index(app_fsm, dcf77_subghz_tx_timeout_default_index());
         app_fsm->speaker_value_index = 0;
         dcf77_app_set_tx_ratio_y_index(app_fsm, 0U);
         dcf77_app_set_tx_ratio_x(app_fsm, 1U);
