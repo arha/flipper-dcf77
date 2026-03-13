@@ -161,6 +161,7 @@ typedef struct AppFSM {
     bool debug_flag;
     bool lf_ready;
     bool subghz_ready;
+    bool subghz_timeout_elapsed;
     bool gpio_rf_running;
     volatile bool subghz_async_tx;
     volatile bool subghz_output;
@@ -287,6 +288,7 @@ void dcf77_app_set_subghz_frequency(AppFSM* app_fsm, uint32_t freq_hz);
 void dcf77_app_step_subghz_frequency(AppFSM* app_fsm, int8_t direction);
 uint32_t dcf77_app_get_subghz_frequency(const AppFSM* app_fsm);
 uint32_t dcf77_app_get_subghz_tx_timeout_seconds(const AppFSM* app_fsm);
+bool dcf77_app_subghz_runtime_enabled(const AppFSM* app_fsm);
 void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm);
 void dcf77_app_set_experimental_time_enabled(AppFSM* app_fsm, bool enabled);
 void dcf77_app_set_experimental_time_source(AppFSM* app_fsm, Dcf77ExperimentalTimeSource source);

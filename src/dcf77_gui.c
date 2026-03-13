@@ -309,13 +309,13 @@ void dcf77_gui_init(AppFSM* app_fsm) {
     submenu_add_item(
         app_fsm->submenu, "SubGHz", Dcf77MenuItemSubGhzSettings, dcf77_menu_callback, app_fsm);
     submenu_add_item(
+        app_fsm->submenu, "Debug", Dcf77MenuItemDebugSettings, dcf77_menu_callback, app_fsm);
+    submenu_add_item(
         app_fsm->submenu,
-        "Experimental time",
+        "Experimental features",
         Dcf77MenuItemExperimentalTimeSettings,
         dcf77_menu_callback,
         app_fsm);
-    submenu_add_item(
-        app_fsm->submenu, "Debug", Dcf77MenuItemDebugSettings, dcf77_menu_callback, app_fsm);
     submenu_add_item(app_fsm->submenu, "About", Dcf77MenuItemAbout, dcf77_menu_callback, app_fsm);
     view_dispatcher_add_view(app_fsm->view_dispatcher, Dcf77ViewMenu, submenu_get_view(app_fsm->submenu));
 
@@ -418,7 +418,7 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         variable_item_list_add(app_fsm->subghz_settings, "KHz", 1, NULL, app_fsm);
     app_fsm->subghz_timeout_item = variable_item_list_add(
         app_fsm->subghz_settings,
-        "TX Timeout sec",
+        "TX Timeout",
         (uint8_t)dcf77_subghz_tx_timeout_count(),
         NULL,
         app_fsm);

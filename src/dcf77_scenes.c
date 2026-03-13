@@ -338,6 +338,7 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
         app_fsm->tx_progress_second = 0;
         app_fsm->tx_second_start_tick = furi_get_tick();
         app_fsm->tx_session_start_tick = app_fsm->tx_second_start_tick;
+        app_fsm->subghz_timeout_elapsed = false;
         app_fsm->tx_active = true;
         dcf77_timing_start(app_fsm);
         dcf77_app_apply_rf_settings(app_fsm);
@@ -369,6 +370,7 @@ void dcf77_app_start_tx(AppFSM* app_fsm) {
     app_fsm->tx_progress_second = app_fsm->bit_number;
     app_fsm->tx_second_start_tick = furi_get_tick();
     app_fsm->tx_session_start_tick = app_fsm->tx_second_start_tick;
+    app_fsm->subghz_timeout_elapsed = false;
     dcf77_timing_start(app_fsm);
     dcf77_app_apply_rf_settings(app_fsm);
     app_fsm->screen = AppScreenTx;
@@ -394,6 +396,7 @@ void dcf77_app_stop_tx(AppFSM* app_fsm) {
     app_fsm->next_minute_prepare_pending = false;
     app_fsm->tx_frame_enabled = false;
     app_fsm->next_tx_frame_enabled = false;
+    app_fsm->subghz_timeout_elapsed = false;
     app_fsm->tx_active = false;
     dcf77_app_switch_to_menu(app_fsm);
 }
@@ -663,7 +666,7 @@ uint32_t dcf77_preset_time_input_previous_callback(void* ctx) {
 
 static bool dcf77_subghz_tx_timeout_expired(const AppFSM* app_fsm, uint32_t now_tick) {
     if(!app_fsm->tx_active || app_fsm->subghz_signal_mode == SubGhzSignalModeDisabled ||
-       dcf77_app_gpio_rf_enabled(app_fsm)) {
+       dcf77_app_gpio_rf_enabled(app_fsm) || app_fsm->subghz_timeout_elapsed) {
         return false;
     }
 
@@ -1128,6 +1131,11 @@ void dcf77_tick_callback(void* ctx) {
         dcf77_app_switch_to_menu(app_fsm);
     }
 
+    if(dcf77_subghz_tx_timeout_expired(app_fsm, now)) {
+        app_fsm->subghz_timeout_elapsed = true;
+        dcf77_app_apply_rf_settings(app_fsm);
+    }
+
     if(app_fsm->tx_active && app_fsm->output_dirty) {
         const bool output = app_fsm->output_state;
         app_fsm->output_dirty = false;
@@ -1139,11 +1147,6 @@ void dcf77_tick_callback(void* ctx) {
 
     if(app_fsm->tx_active && app_fsm->next_minute_prepare_pending) {
         dcf77_prepare_pending_minute(app_fsm);
-    }
-
-    if(dcf77_subghz_tx_timeout_expired(app_fsm, now)) {
-        dcf77_app_stop_tx(app_fsm);
-        return;
     }
 
     if(app_fsm->tx_active) {

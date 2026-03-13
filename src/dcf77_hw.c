@@ -114,8 +114,9 @@ static void dcf77_subghz_init(AppFSM* app_fsm, const uint8_t* preset) {
 static LevelDuration dcf77_subghz_fsk_yield(void* context) {
     AppFSM* app_fsm = context;
 
-    if(app_fsm->subghz_signal_mode != SubGhzSignalModeFsk &&
-       app_fsm->subghz_signal_mode != SubGhzSignalModeFskFull) {
+    if(!dcf77_app_subghz_runtime_enabled(app_fsm) ||
+       (app_fsm->subghz_signal_mode != SubGhzSignalModeFsk &&
+        app_fsm->subghz_signal_mode != SubGhzSignalModeFskFull)) {
         return level_duration_reset();
     }
 
@@ -601,7 +602,7 @@ void dcf77_subghz_apply_settings(AppFSM* app_fsm) {
     }
 
     dcf77_subghz_deinit(app_fsm);
-    if(app_fsm->subghz_signal_mode == SubGhzSignalModeDisabled) {
+    if(!dcf77_app_subghz_runtime_enabled(app_fsm)) {
         return;
     }
 
@@ -626,7 +627,8 @@ void dcf77_subghz_apply_settings(AppFSM* app_fsm) {
 }
 
 void dcf77_subghz_sync_output(AppFSM* app_fsm) {
-    if((app_fsm->subghz_signal_mode != SubGhzSignalModeFsk &&
+    if(!dcf77_app_subghz_runtime_enabled(app_fsm) ||
+       (app_fsm->subghz_signal_mode != SubGhzSignalModeFsk &&
         app_fsm->subghz_signal_mode != SubGhzSignalModeFskFull) ||
        dcf77_app_gpio_rf_enabled(app_fsm) ||
        !app_fsm->subghz_ready) {
