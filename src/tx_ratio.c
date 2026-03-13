@@ -45,7 +45,7 @@ uint8_t dcf77_tx_ratio_x_clamp(uint8_t x, uint8_t y) {
 
 bool dcf77_tx_ratio_should_send(uint32_t frame_index, uint8_t x, uint8_t y) {
     x = dcf77_tx_ratio_x_clamp(x, y);
-    y = dcf77_tx_ratio_x_clamp(y, y);
+    y = dcf77_tx_ratio_x_clamp(y,  y);
 
-    return (frame_index % y) < x;
+      return (((frame_index + 1U) * x + y - 1U) / y) != ((frame_index * x + y - 1U) / y);
 }
