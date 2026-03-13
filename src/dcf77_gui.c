@@ -66,6 +66,12 @@ static void dcf77_tx_render_progress_bar(Canvas* const canvas, const AppFSM* app
         canvas_draw_box(canvas, bar_x + 1U, fill_y, fill_width - 2U, fill_height);
     } else if(fill_width > 2U) {
         canvas_draw_line(canvas, bar_x + 1U, fill_y, bar_x + fill_width - 2U, fill_y);
+        canvas_draw_line(
+            canvas,
+            bar_x + 1U,
+            fill_y + fill_height - 1U,
+            bar_x + fill_width - 2U,
+            fill_y + fill_height - 1U);
     }
     canvas_draw_line(
         canvas,
