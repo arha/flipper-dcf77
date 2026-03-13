@@ -28,10 +28,16 @@ static void test_x_is_clamped_to_y(void) {
 static void test_send_ratio_patterns(void) {
     static const bool ratio_one_of_two[] = {true, false, true, false, true, false};
     static const bool ratio_two_of_three[] = {true, true, false, true, true, false};
+    static const bool ratio_two_of_six[] = {
+        true, false, false, true, false, false, true, false, false, true, false, false};
 
     for(size_t i = 0; i < sizeof(ratio_one_of_two) / sizeof(ratio_one_of_two[0]); i++) {
         assert(dcf77_tx_ratio_should_send((uint32_t)i, 1U, 2U) == ratio_one_of_two[i]);
         assert(dcf77_tx_ratio_should_send((uint32_t)i, 2U, 3U) == ratio_two_of_three[i]);
+    }
+
+    for(size_t i = 0; i < sizeof(ratio_two_of_six) / sizeof(ratio_two_of_six[0]); i++) {
+        assert(dcf77_tx_ratio_should_send((uint32_t)i, 2U, 6U) == ratio_two_of_six[i]);
     }
 }
 
