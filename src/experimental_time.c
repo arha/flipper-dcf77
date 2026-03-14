@@ -112,7 +112,7 @@ uint32_t dcf77_experimental_time_get_minute_delta(
     const Dcf77ExperimentalTimeSettings* settings,
     uint32_t frame_index) {
     if(settings == NULL || !settings->enabled ||
-       settings->direction != Dcf77ExperimentalTimeDirectionForward) {
+       settings->direction == Dcf77ExperimentalTimeDirectionStopped) {
         return 0U;
     }
 
@@ -141,7 +141,7 @@ void dcf77_experimental_time_get_frame_datetime(
     uint32_t timestamp = datetime_datetime_to_timestamp(&frame_datetime);
 
     if(settings->enabled && settings->direction == Dcf77ExperimentalTimeDirectionBackwards) {
-        const uint32_t second_delta = frame_index * 60U;
+        const uint32_t second_delta = minute_delta * 60U;
         timestamp = (timestamp > second_delta) ? (timestamp - second_delta) : 0U;
     } else {
         timestamp += minute_delta * 60U;
