@@ -216,8 +216,7 @@ typedef struct AppFSM {
     VariableItem* experimental_time_source_item;
     VariableItem* experimental_preset_item;
     VariableItem* experimental_direction_item;
-    VariableItem* experimental_speedup_item;
-    VariableItem* experimental_slowdown_item;
+    VariableItem* experimental_speed_item;
     VariableItem* subghz_tx_item;
     VariableItem* subghz_tone_item;
     VariableItem* subghz_band_item;
@@ -237,8 +236,7 @@ typedef struct AppFSM {
     char tx_ratio_x_text[4];
     char tx_ratio_y_text[4];
     char experimental_preset_text[24];
-    char experimental_speedup_text[4];
-    char experimental_slowdown_text[4];
+    char experimental_speed_text[8];
     char subghz_tone_text[16];
     char subghz_band_text[16];
     char subghz_frequency_text[16];

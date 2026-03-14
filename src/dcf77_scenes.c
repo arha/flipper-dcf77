@@ -30,8 +30,7 @@ enum {
     Dcf77ExperimentalTimeSettingSource,
     Dcf77ExperimentalTimeSettingPreset,
     Dcf77ExperimentalTimeSettingDirection,
-    Dcf77ExperimentalTimeSettingSpeedup,
-    Dcf77ExperimentalTimeSettingSlowdown,
+    Dcf77ExperimentalTimeSettingSpeed,
 };
 
 enum {
@@ -105,19 +104,12 @@ static void dcf77_experimental_time_settings_sync(AppFSM* app_fsm) {
         app_fsm->experimental_direction_item,
         dcf77_experimental_time_direction_labels[app_fsm->experimental_time_settings.direction]);
     variable_item_set_current_value_index(
-        app_fsm->experimental_speedup_item,
+        app_fsm->experimental_speed_item,
         (app_fsm->experimental_time_settings.speedup > 0U) ?
             (app_fsm->experimental_time_settings.speedup - 1U) :
             0U);
     variable_item_set_current_value_text(
-        app_fsm->experimental_speedup_item, app_fsm->experimental_speedup_text);
-    variable_item_set_current_value_index(
-        app_fsm->experimental_slowdown_item,
-        (app_fsm->experimental_time_settings.slowdown > 0U) ?
-            (app_fsm->experimental_time_settings.slowdown - 1U) :
-            0U);
-    variable_item_set_current_value_text(
-        app_fsm->experimental_slowdown_item, app_fsm->experimental_slowdown_text);
+        app_fsm->experimental_speed_item, app_fsm->experimental_speed_text);
     with_view_model(
         variable_item_list_get_view(app_fsm->experimental_time_settings_view),
         void * model,
@@ -557,7 +549,7 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
     switch(event->key) {
     case InputKeyUp:
         if(selected == 0U) {
-            selected = Dcf77ExperimentalTimeSettingSlowdown;
+            selected = Dcf77ExperimentalTimeSettingSpeed;
         } else {
             selected--;
         }
@@ -565,7 +557,7 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
         return true;
     case InputKeyDown:
         selected++;
-        if(selected > Dcf77ExperimentalTimeSettingSlowdown) {
+        if(selected > Dcf77ExperimentalTimeSettingSpeed) {
             selected = 0U;
         }
         variable_item_list_set_selected_item(app_fsm->experimental_time_settings_view, selected);
@@ -590,17 +582,10 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
-        if(selected == Dcf77ExperimentalTimeSettingSpeedup &&
+        if(selected == Dcf77ExperimentalTimeSettingSpeed &&
            app_fsm->experimental_time_settings.speedup > 1U) {
             dcf77_app_set_experimental_speedup(
                 app_fsm, app_fsm->experimental_time_settings.speedup - 1U);
-            dcf77_experimental_time_settings_apply(app_fsm);
-            return true;
-        }
-        if(selected == Dcf77ExperimentalTimeSettingSlowdown &&
-           app_fsm->experimental_time_settings.slowdown > 1U) {
-            dcf77_app_set_experimental_slowdown(
-                app_fsm, app_fsm->experimental_time_settings.slowdown - 1U);
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
@@ -625,17 +610,10 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
-        if(selected == Dcf77ExperimentalTimeSettingSpeedup &&
+        if(selected == Dcf77ExperimentalTimeSettingSpeed &&
            app_fsm->experimental_time_settings.speedup < 5U) {
             dcf77_app_set_experimental_speedup(
                 app_fsm, app_fsm->experimental_time_settings.speedup + 1U);
-            dcf77_experimental_time_settings_apply(app_fsm);
-            return true;
-        }
-        if(selected == Dcf77ExperimentalTimeSettingSlowdown &&
-           app_fsm->experimental_time_settings.slowdown < 5U) {
-            dcf77_app_set_experimental_slowdown(
-                app_fsm, app_fsm->experimental_time_settings.slowdown + 1U);
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }

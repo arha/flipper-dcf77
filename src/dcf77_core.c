@@ -158,6 +158,8 @@ void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm) {
 }
 
 void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm) {
+    static const char* const dcf77_experimental_time_speed_labels[] = {
+        "1 min", "30 sec", "20 sec", "15 sec", "12 sec"};
     const DateTime* preset = &app_fsm->experimental_time_settings.preset_datetime;
 
     snprintf(
@@ -170,15 +172,10 @@ void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm) {
         preset->minute,
         preset->second);
     snprintf(
-        app_fsm->experimental_speedup_text,
-        sizeof(app_fsm->experimental_speedup_text),
-        "%u",
-        app_fsm->experimental_time_settings.speedup);
-    snprintf(
-        app_fsm->experimental_slowdown_text,
-        sizeof(app_fsm->experimental_slowdown_text),
-        "%u",
-        app_fsm->experimental_time_settings.slowdown);
+        app_fsm->experimental_speed_text,
+        sizeof(app_fsm->experimental_speed_text),
+        "%s",
+        dcf77_experimental_time_speed_labels[app_fsm->experimental_time_settings.speedup - 1U]);
 }
 
 uint8_t dcf77_app_get_tx_ratio_y(const AppFSM* app_fsm) {
