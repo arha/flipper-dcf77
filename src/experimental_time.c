@@ -138,7 +138,15 @@ void dcf77_experimental_time_get_frame_datetime(
 
     const uint32_t minute_delta = dcf77_experimental_time_get_minute_delta(settings, frame_index);
     DateTime frame_datetime = runtime->base_datetime;
-    const uint32_t timestamp = datetime_datetime_to_timestamp(&frame_datetime) + (minute_delta * 60U);
+    uint32_t timestamp = datetime_datetime_to_timestamp(&frame_datetime);
+
+    if(settings->enabled && settings->direction == Dcf77ExperimentalTimeDirectionBackwards) {
+        const uint32_t second_delta = frame_index * 60U;
+        timestamp = (timestamp > second_delta) ? (timestamp - second_delta) : 0U;
+    } else {
+        timestamp += minute_delta * 60U;
+    }
+
     datetime_timestamp_to_datetime(timestamp, &frame_datetime);
     *datetime = frame_datetime;
 }
