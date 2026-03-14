@@ -581,9 +581,8 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
         }
         if(selected == Dcf77ExperimentalTimeSettingSpeed &&
            app_fsm->experimental_time_speed_index > 0U) {
-            app_fsm->experimental_time_speed_index--;
-            dcf77_app_update_experimental_time_texts(app_fsm);
-            dcf77_experimental_time_settings_sync(app_fsm);
+            dcf77_app_set_experimental_time_speed_index(app_fsm, app_fsm->experimental_time_speed_index - 1U);
+            dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
         return false;
@@ -609,9 +608,8 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
         }
         if(selected == Dcf77ExperimentalTimeSettingSpeed &&
            app_fsm->experimental_time_speed_index < 8U) {
-            app_fsm->experimental_time_speed_index++;
-            dcf77_app_update_experimental_time_texts(app_fsm);
-            dcf77_experimental_time_settings_sync(app_fsm);
+            dcf77_app_set_experimental_time_speed_index(app_fsm, app_fsm->experimental_time_speed_index + 1U);
+            dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
         return false;

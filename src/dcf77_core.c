@@ -318,6 +318,30 @@ void dcf77_app_set_experimental_time_direction(
     dcf77_app_update_experimental_time_texts(app_fsm);
 }
 
+void dcf77_app_set_experimental_time_speed_index(AppFSM* app_fsm, uint8_t speed_index) {
+    if(speed_index > 8U) {
+        speed_index = 8U;
+    }
+
+    app_fsm->experimental_time_speed_index = speed_index;
+
+    if(speed_index < 4U) {
+        app_fsm->experimental_time_settings.speedup = 1U;
+        app_fsm->experimental_time_settings.slowdown = 5U - speed_index;
+    } else if(speed_index == 4U) {
+        app_fsm->experimental_time_settings.speedup = 1U;
+        app_fsm->experimental_time_settings.slowdown = 1U;
+    } else {
+        app_fsm->experimental_time_settings.speedup = speed_index - 3U;
+        app_fsm->experimental_time_settings.slowdown = 1U;
+    }
+
+    dcf77_experimental_time_normalize_settings(
+        &app_fsm->experimental_time_settings, &app_fsm->experimental_time_settings.preset_datetime);
+    app_fsm->experimental_time_speed_index = dcf77_app_get_experimental_time_speed_index(app_fsm);
+    dcf77_app_update_experimental_time_texts(app_fsm);
+}
+
 void dcf77_app_set_experimental_speedup(AppFSM* app_fsm, uint8_t speedup) {
     app_fsm->experimental_time_settings.speedup = speedup;
     if(speedup > 1U) {
@@ -325,6 +349,7 @@ void dcf77_app_set_experimental_speedup(AppFSM* app_fsm, uint8_t speedup) {
     }
     dcf77_experimental_time_normalize_settings(
         &app_fsm->experimental_time_settings, &app_fsm->experimental_time_settings.preset_datetime);
+    app_fsm->experimental_time_speed_index = dcf77_app_get_experimental_time_speed_index(app_fsm);
     dcf77_app_update_experimental_time_texts(app_fsm);
 }
 
@@ -335,6 +360,7 @@ void dcf77_app_set_experimental_slowdown(AppFSM* app_fsm, uint8_t slowdown) {
     }
     dcf77_experimental_time_normalize_settings(
         &app_fsm->experimental_time_settings, &app_fsm->experimental_time_settings.preset_datetime);
+    app_fsm->experimental_time_speed_index = dcf77_app_get_experimental_time_speed_index(app_fsm);
     dcf77_app_update_experimental_time_texts(app_fsm);
 }
 

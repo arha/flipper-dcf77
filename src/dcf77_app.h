@@ -293,6 +293,7 @@ void dcf77_app_set_experimental_time_enabled(AppFSM* app_fsm, bool enabled);
 void dcf77_app_set_experimental_time_source(AppFSM* app_fsm, Dcf77ExperimentalTimeSource source);
 void dcf77_app_set_experimental_preset_datetime(AppFSM* app_fsm, const DateTime* datetime);
 void dcf77_app_set_experimental_time_direction(AppFSM* app_fsm, Dcf77ExperimentalTimeDirection direction);
+void dcf77_app_set_experimental_time_speed_index(AppFSM* app_fsm, uint8_t speed_index);
 void dcf77_app_set_experimental_speedup(AppFSM* app_fsm, uint8_t speedup);
 void dcf77_app_set_experimental_slowdown(AppFSM* app_fsm, uint8_t slowdown);
 void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm);
