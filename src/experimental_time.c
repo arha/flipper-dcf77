@@ -51,7 +51,7 @@ void dcf77_experimental_time_reset_settings(
     settings->enabled = false;
     settings->source = Dcf77ExperimentalTimeSourceFlipper;
     settings->preset_datetime = *fallback_datetime;
-    settings->stop_time = false;
+    settings->direction = Dcf77ExperimentalTimeDirectionForward;
     settings->speedup = 1U;
     settings->slowdown = 1U;
 }
@@ -65,6 +65,10 @@ void dcf77_experimental_time_normalize_settings(
 
     if(settings->source >= Dcf77ExperimentalTimeSourceCount) {
         settings->source = Dcf77ExperimentalTimeSourceFlipper;
+    }
+
+    if(settings->direction >= Dcf77ExperimentalTimeDirectionCount) {
+        settings->direction = Dcf77ExperimentalTimeDirectionForward;
     }
 
     settings->speedup = dcf77_experimental_time_clamp_u8(settings->speedup, 1U, 5U);
@@ -107,7 +111,8 @@ void dcf77_experimental_time_advance_runtime(Dcf77ExperimentalTimeRuntime* runti
 uint32_t dcf77_experimental_time_get_minute_delta(
     const Dcf77ExperimentalTimeSettings* settings,
     uint32_t frame_index) {
-    if(settings == NULL || !settings->enabled || settings->stop_time) {
+    if(settings == NULL || !settings->enabled ||
+       settings->direction != Dcf77ExperimentalTimeDirectionForward) {
         return 0U;
     }
 

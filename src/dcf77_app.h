@@ -215,7 +215,7 @@ typedef struct AppFSM {
     VariableItem* experimental_time_enabled_item;
     VariableItem* experimental_time_source_item;
     VariableItem* experimental_preset_item;
-    VariableItem* experimental_stop_item;
+    VariableItem* experimental_direction_item;
     VariableItem* experimental_speedup_item;
     VariableItem* experimental_slowdown_item;
     VariableItem* subghz_tx_item;
@@ -293,7 +293,7 @@ void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm);
 void dcf77_app_set_experimental_time_enabled(AppFSM* app_fsm, bool enabled);
 void dcf77_app_set_experimental_time_source(AppFSM* app_fsm, Dcf77ExperimentalTimeSource source);
 void dcf77_app_set_experimental_preset_datetime(AppFSM* app_fsm, const DateTime* datetime);
-void dcf77_app_set_experimental_stop_time(AppFSM* app_fsm, bool stop_time);
+void dcf77_app_set_experimental_time_direction(AppFSM* app_fsm, Dcf77ExperimentalTimeDirection direction);
 void dcf77_app_set_experimental_speedup(AppFSM* app_fsm, uint8_t speedup);
 void dcf77_app_set_experimental_slowdown(AppFSM* app_fsm, uint8_t slowdown);
 void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm);

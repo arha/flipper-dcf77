@@ -300,8 +300,10 @@ void dcf77_app_set_experimental_preset_datetime(AppFSM* app_fsm, const DateTime*
     dcf77_app_update_experimental_time_texts(app_fsm);
 }
 
-void dcf77_app_set_experimental_stop_time(AppFSM* app_fsm, bool stop_time) {
-    app_fsm->experimental_time_settings.stop_time = stop_time;
+void dcf77_app_set_experimental_time_direction(
+    AppFSM* app_fsm,
+    Dcf77ExperimentalTimeDirection direction) {
+    app_fsm->experimental_time_settings.direction = direction;
     dcf77_experimental_time_normalize_settings(
         &app_fsm->experimental_time_settings, &app_fsm->experimental_time_settings.preset_datetime);
     dcf77_app_update_experimental_time_texts(app_fsm);
@@ -584,7 +586,7 @@ bool dcf77_app_settings_save(const AppFSM* app_fsm) {
         .subghz_selected_band_start = app_fsm->subghz_band_starts[app_fsm->subghz_band_index],
         .experimental_time_enabled = app_fsm->experimental_time_settings.enabled ? 1U : 0U,
         .experimental_time_source = app_fsm->experimental_time_settings.source,
-        .experimental_stop_time = app_fsm->experimental_time_settings.stop_time ? 1U : 0U,
+        .experimental_stop_time = app_fsm->experimental_time_settings.direction,
         .tx_ratio_y_index = app_fsm->tx_ratio_y_index,
         .experimental_speedup = app_fsm->experimental_time_settings.speedup,
         .experimental_slowdown = app_fsm->experimental_time_settings.slowdown,
@@ -661,7 +663,7 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         .tx_ratio_y_index = 0U,
         .experimental_time_enabled = 0,
         .experimental_time_source = Dcf77ExperimentalTimeSourceFlipper,
-        .experimental_stop_time = 0,
+        .experimental_stop_time = Dcf77ExperimentalTimeDirectionForward,
         .experimental_speedup = 1,
         .experimental_slowdown = 1,
         .subghz_tx_timeout_index = DCF77_SUBGHZ_DEFAULT_TX_TIMEOUT_INDEX,
@@ -716,7 +718,7 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         app_fsm->experimental_time_settings.enabled = settings.experimental_time_enabled != 0;
         app_fsm->experimental_time_settings.source =
             (Dcf77ExperimentalTimeSource)settings.experimental_time_source;
-        app_fsm->experimental_time_settings.stop_time = settings.experimental_stop_time != 0;
+        app_fsm->experimental_time_settings.direction = settings.experimental_stop_time;
         app_fsm->experimental_time_settings.speedup = settings.experimental_speedup;
         app_fsm->experimental_time_settings.slowdown = settings.experimental_slowdown;
         app_fsm->experimental_time_settings.preset_datetime = settings.experimental_preset_datetime;

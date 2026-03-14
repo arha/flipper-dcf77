@@ -16,11 +16,18 @@ typedef enum {
     Dcf77ExperimentalTimeSourceCount,
 } Dcf77ExperimentalTimeSource;
 
+typedef enum {
+    Dcf77ExperimentalTimeDirectionForward = 0,
+    Dcf77ExperimentalTimeDirectionStopped,
+    Dcf77ExperimentalTimeDirectionBackwards,
+    Dcf77ExperimentalTimeDirectionCount,
+} Dcf77ExperimentalTimeDirection;
+
 typedef struct {
     bool enabled;
     Dcf77ExperimentalTimeSource source;
     DateTime preset_datetime;
-    bool stop_time;
+    uint8_t direction;
     uint8_t speedup;
     uint8_t slowdown;
 } Dcf77ExperimentalTimeSettings;

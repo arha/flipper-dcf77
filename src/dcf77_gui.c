@@ -387,8 +387,8 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         app_fsm);
     app_fsm->experimental_preset_item = variable_item_list_add(
         app_fsm->experimental_time_settings_view, "Preset time", 1, NULL, app_fsm);
-    app_fsm->experimental_stop_item = variable_item_list_add(
-        app_fsm->experimental_time_settings_view, "Stop time", 2, NULL, app_fsm);
+    app_fsm->experimental_direction_item = variable_item_list_add(
+        app_fsm->experimental_time_settings_view, "Time direction", 3, NULL, app_fsm);
     app_fsm->experimental_speedup_item = variable_item_list_add(
         app_fsm->experimental_time_settings_view, "Time speedup", 5, NULL, app_fsm);
     app_fsm->experimental_slowdown_item = variable_item_list_add(

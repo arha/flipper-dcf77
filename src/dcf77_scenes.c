@@ -29,7 +29,7 @@ enum {
     Dcf77ExperimentalTimeSettingEnabled,
     Dcf77ExperimentalTimeSettingSource,
     Dcf77ExperimentalTimeSettingPreset,
-    Dcf77ExperimentalTimeSettingStop,
+    Dcf77ExperimentalTimeSettingDirection,
     Dcf77ExperimentalTimeSettingSpeedup,
     Dcf77ExperimentalTimeSettingSlowdown,
 };
@@ -55,6 +55,7 @@ enum {
 static const char* const dcf77_subghz_mode_labels[] = {"No", "OOK", "FSK", "100%"};
 static const char* const dcf77_experimental_time_toggle_labels[] = {"No", "Yes"};
 static const char* const dcf77_experimental_time_source_labels[] = {"Flipper", "Preset"};
+static const char* const dcf77_experimental_time_direction_labels[] = {"Forward", "Stopped", "Backwards"};
 
 static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
     variable_item_set_current_value_index(
@@ -99,11 +100,10 @@ static void dcf77_experimental_time_settings_sync(AppFSM* app_fsm) {
     variable_item_set_current_value_text(
         app_fsm->experimental_preset_item, app_fsm->experimental_preset_text);
     variable_item_set_current_value_index(
-        app_fsm->experimental_stop_item,
-        app_fsm->experimental_time_settings.stop_time ? 1U : 0U);
+        app_fsm->experimental_direction_item, app_fsm->experimental_time_settings.direction);
     variable_item_set_current_value_text(
-        app_fsm->experimental_stop_item,
-        dcf77_experimental_time_toggle_labels[app_fsm->experimental_time_settings.stop_time ? 1U : 0U]);
+        app_fsm->experimental_direction_item,
+        dcf77_experimental_time_direction_labels[app_fsm->experimental_time_settings.direction]);
     variable_item_set_current_value_index(
         app_fsm->experimental_speedup_item,
         (app_fsm->experimental_time_settings.speedup > 0U) ?
@@ -583,8 +583,10 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
-        if(selected == Dcf77ExperimentalTimeSettingStop) {
-            dcf77_app_set_experimental_stop_time(app_fsm, false);
+        if(selected == Dcf77ExperimentalTimeSettingDirection &&
+           app_fsm->experimental_time_settings.direction < Dcf77ExperimentalTimeDirectionBackwards) {
+            dcf77_app_set_experimental_time_direction(
+                app_fsm, app_fsm->experimental_time_settings.direction + 1U);
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
@@ -616,8 +618,10 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
-        if(selected == Dcf77ExperimentalTimeSettingStop) {
-            dcf77_app_set_experimental_stop_time(app_fsm, true);
+        if(selected == Dcf77ExperimentalTimeSettingDirection &&
+           app_fsm->experimental_time_settings.direction > Dcf77ExperimentalTimeDirectionForward) {
+            dcf77_app_set_experimental_time_direction(
+                app_fsm, app_fsm->experimental_time_settings.direction - 1U);
             dcf77_experimental_time_settings_apply(app_fsm);
             return true;
         }
