@@ -104,10 +104,7 @@ static void dcf77_experimental_time_settings_sync(AppFSM* app_fsm) {
         app_fsm->experimental_direction_item,
         dcf77_experimental_time_direction_labels[app_fsm->experimental_time_settings.direction]);
     variable_item_set_current_value_index(
-        app_fsm->experimental_speed_item,
-        (app_fsm->experimental_time_settings.speedup > 0U) ?
-            (app_fsm->experimental_time_settings.speedup - 1U) :
-            0U);
+        app_fsm->experimental_speed_item, app_fsm->experimental_time_speed_index);
     variable_item_set_current_value_text(
         app_fsm->experimental_speed_item, app_fsm->experimental_speed_text);
     with_view_model(
@@ -583,10 +580,10 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
             return true;
         }
         if(selected == Dcf77ExperimentalTimeSettingSpeed &&
-           app_fsm->experimental_time_settings.speedup > 1U) {
-            dcf77_app_set_experimental_speedup(
-                app_fsm, app_fsm->experimental_time_settings.speedup - 1U);
-            dcf77_experimental_time_settings_apply(app_fsm);
+           app_fsm->experimental_time_speed_index > 0U) {
+            app_fsm->experimental_time_speed_index--;
+            dcf77_app_update_experimental_time_texts(app_fsm);
+            dcf77_experimental_time_settings_sync(app_fsm);
             return true;
         }
         return false;
@@ -611,10 +608,10 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
             return true;
         }
         if(selected == Dcf77ExperimentalTimeSettingSpeed &&
-           app_fsm->experimental_time_settings.speedup < 5U) {
-            dcf77_app_set_experimental_speedup(
-                app_fsm, app_fsm->experimental_time_settings.speedup + 1U);
-            dcf77_experimental_time_settings_apply(app_fsm);
+           app_fsm->experimental_time_speed_index < 8U) {
+            app_fsm->experimental_time_speed_index++;
+            dcf77_app_update_experimental_time_texts(app_fsm);
+            dcf77_experimental_time_settings_sync(app_fsm);
             return true;
         }
         return false;

@@ -149,6 +149,18 @@ static void dcf77_app_seed_subghz_defaults(AppFSM* app_fsm) {
     }
 }
 
+static uint8_t dcf77_app_get_experimental_time_speed_index(const AppFSM* app_fsm) {
+    if(app_fsm->experimental_time_settings.slowdown > 1U) {
+        return 5U - app_fsm->experimental_time_settings.slowdown;
+    }
+
+    if(app_fsm->experimental_time_settings.speedup > 1U) {
+        return app_fsm->experimental_time_settings.speedup + 3U;
+    }
+
+    return 4U;
+}
+
 void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm) {
     DateTime rtc_datetime;
 
@@ -159,7 +171,7 @@ void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm) {
 
 void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm) {
     static const char* const dcf77_experimental_time_speed_labels[] = {
-        "1 min", "30 sec", "20 sec", "15 sec", "12 sec"};
+        "5 min", "4 min", "3 min", "2 min", "1 min", "30 sec", "20 sec", "15 sec", "12 sec"};
     const DateTime* preset = &app_fsm->experimental_time_settings.preset_datetime;
 
     snprintf(
@@ -175,7 +187,7 @@ void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm) {
         app_fsm->experimental_speed_text,
         sizeof(app_fsm->experimental_speed_text),
         "%s",
-        dcf77_experimental_time_speed_labels[app_fsm->experimental_time_settings.speedup - 1U]);
+        dcf77_experimental_time_speed_labels[app_fsm->experimental_time_speed_index]);
 }
 
 uint8_t dcf77_app_get_tx_ratio_y(const AppFSM* app_fsm) {
@@ -721,6 +733,7 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         app_fsm->experimental_time_settings.preset_datetime = settings.experimental_preset_datetime;
         dcf77_experimental_time_normalize_settings(
             &app_fsm->experimental_time_settings, &default_datetime);
+        app_fsm->experimental_time_speed_index = dcf77_app_get_experimental_time_speed_index(app_fsm);
         dcf77_app_restore_saved_subghz_frequencies(
             app_fsm,
             settings.subghz_band_starts,
@@ -738,8 +751,10 @@ static void dcf77_app_settings_load(AppFSM* app_fsm) {
         dcf77_app_set_tx_ratio_y_index(app_fsm, 0U);
         dcf77_app_set_tx_ratio_x(app_fsm, 1U);
         dcf77_app_set_signal_frequency(app_fsm, app_fsm->signal_freqs[RadioClockSignalDcf77]);
+        app_fsm->experimental_time_speed_index = dcf77_app_get_experimental_time_speed_index(app_fsm);
     }
 
+    dcf77_app_update_experimental_time_texts(app_fsm);
     dcf77_app_update_subghz_texts(app_fsm);
     dcf77_app_update_tx_ratio_texts(app_fsm);
     dcf77_app_set_gpio_baseband_pin(app_fsm, app_fsm->gpio_baseband_pin_number);

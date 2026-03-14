@@ -148,6 +148,7 @@ typedef struct AppFSM {
     DateTime next_minute_dt;
     Dcf77ExperimentalTimeSettings experimental_time_settings;
     Dcf77ExperimentalTimeRuntime experimental_time_runtime;
+    uint8_t experimental_time_speed_index;
     volatile uint8_t scheduler_second;
     volatile uint8_t scheduler_segment;
     volatile bool scheduler_ready;

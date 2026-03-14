@@ -390,7 +390,7 @@ void dcf77_gui_init(AppFSM* app_fsm) {
     app_fsm->experimental_direction_item = variable_item_list_add(
         app_fsm->experimental_time_settings_view, "Time direction", 3, NULL, app_fsm);
     app_fsm->experimental_speed_item = variable_item_list_add(
-        app_fsm->experimental_time_settings_view, "Time speed: 1 min =", 5, NULL, app_fsm);
+        app_fsm->experimental_time_settings_view, "Time speed: 1 min =", 9, NULL, app_fsm);
     variable_item_list_set_enter_callback(
         app_fsm->experimental_time_settings_view,
         dcf77_experimental_time_settings_enter_callback,
