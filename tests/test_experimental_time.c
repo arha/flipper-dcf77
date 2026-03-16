@@ -24,7 +24,7 @@ static void test_reset_settings(void) {
     assert(settings.source == Dcf77ExperimentalTimeSourceFlipper);
     assert(settings.preset_datetime.hour == fallback_datetime.hour);
     assert(settings.preset_datetime.minute == fallback_datetime.minute);
-    assert(settings.stop_time == false);
+    assert(settings.direction == Dcf77ExperimentalTimeDirectionForward);
     assert(settings.speedup == 1U);
     assert(settings.slowdown == 1U);
 }
@@ -43,7 +43,7 @@ static void test_normalize_settings_invalid_preset(void) {
                 .year = 2107,
                 .weekday = 0,
             },
-        .stop_time = false,
+        .direction = Dcf77ExperimentalTimeDirectionForward,
         .speedup = 9U,
         .slowdown = 8U,
     };
@@ -144,14 +144,14 @@ static void test_frame_datetime_slowdown(void) {
     assert(datetime.minute == 18U);
 }
 
-static void test_frame_datetime_stop_time(void) {
+static void test_frame_datetime_stopped(void) {
     Dcf77ExperimentalTimeSettings settings;
     Dcf77ExperimentalTimeRuntime runtime;
     DateTime datetime;
 
     dcf77_experimental_time_reset_settings(&settings, &fallback_datetime);
     settings.enabled = true;
-    settings.stop_time = true;
+    settings.direction = Dcf77ExperimentalTimeDirectionStopped;
     settings.speedup = 5U;
     dcf77_experimental_time_normalize_settings(&settings, &fallback_datetime);
     dcf77_experimental_time_seed_runtime(&runtime, &settings, &fallback_datetime);
@@ -160,6 +160,48 @@ static void test_frame_datetime_stop_time(void) {
     assert(datetime.hour == fallback_datetime.hour);
     assert(datetime.minute == fallback_datetime.minute);
     assert(datetime.second == fallback_datetime.second);
+}
+
+static void test_frame_datetime_backwards(void) {
+    Dcf77ExperimentalTimeSettings settings;
+    Dcf77ExperimentalTimeRuntime runtime;
+    DateTime datetime;
+
+    dcf77_experimental_time_reset_settings(&settings, &fallback_datetime);
+    settings.enabled = true;
+    settings.direction = Dcf77ExperimentalTimeDirectionBackwards;
+    dcf77_experimental_time_seed_runtime(&runtime, &settings, &fallback_datetime);
+    dcf77_experimental_time_get_frame_datetime(&settings, &runtime, 2U, &datetime);
+
+    assert(datetime.hour == 21U);
+    assert(datetime.minute == 15U);
+    assert(datetime.second == 33U);
+}
+
+static void test_frame_datetime_backwards_speedup_and_slowdown(void) {
+    Dcf77ExperimentalTimeSettings settings;
+    Dcf77ExperimentalTimeRuntime runtime;
+    DateTime datetime;
+
+    dcf77_experimental_time_reset_settings(&settings, &fallback_datetime);
+    settings.enabled = true;
+    settings.direction = Dcf77ExperimentalTimeDirectionBackwards;
+    settings.speedup = 2U;
+    dcf77_experimental_time_normalize_settings(&settings, &fallback_datetime);
+    dcf77_experimental_time_seed_runtime(&runtime, &settings, &fallback_datetime);
+    dcf77_experimental_time_get_frame_datetime(&settings, &runtime, 3U, &datetime);
+
+    assert(datetime.hour == 21U);
+    assert(datetime.minute == 11U);
+
+    settings.speedup = 1U;
+    settings.slowdown = 3U;
+    dcf77_experimental_time_normalize_settings(&settings, &fallback_datetime);
+    dcf77_experimental_time_seed_runtime(&runtime, &settings, &fallback_datetime);
+    dcf77_experimental_time_get_frame_datetime(&settings, &runtime, 5U, &datetime);
+
+    assert(datetime.hour == 21U);
+    assert(datetime.minute == 16U);
 }
 
 static void test_frame_datetime_rollover(void) {
@@ -237,7 +279,9 @@ int main(void) {
     test_frame_datetime_normal_progression();
     test_frame_datetime_speedup();
     test_frame_datetime_slowdown();
-    test_frame_datetime_stop_time();
+    test_frame_datetime_stopped();
+    test_frame_datetime_backwards();
+    test_frame_datetime_backwards_speedup_and_slowdown();
     test_frame_datetime_rollover();
     test_current_frame_minute_zeroes_seconds();
     test_preset_second_alignment();
