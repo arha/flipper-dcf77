@@ -171,7 +171,7 @@ void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm) {
 
 void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm) {
     static const char* const dcf77_experimental_time_speed_labels[] = {
-        "5 min", "4 min", "3 min", "2 min", "1 min", "30 sec", "20 sec", "15 sec", "12 sec"};
+        "5 min", "4 min", "3 min", "2 min", "60s", "30 sec", "20 sec", "15 sec", "12 sec"};
     const DateTime* preset = &app_fsm->experimental_time_settings.preset_datetime;
 
     snprintf(
