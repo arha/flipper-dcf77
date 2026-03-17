@@ -666,7 +666,7 @@ uint32_t dcf77_preset_time_input_previous_callback(void* ctx) {
         dcf77_app_settings_save(app_fsm);
     }
 
-    dcf77_app_switch_to_experimental_time_settings(app_fsm);
+    app_fsm->screen = AppScreenExperimentalTimeSettings;
     return Dcf77ViewExperimentalTimeSettings;
 }
 
