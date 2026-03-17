@@ -112,8 +112,7 @@ static void dcf77_experimental_time_settings_sync(AppFSM* app_fsm) {
         app_fsm->experimental_time_source_item,
         dcf77_experimental_time_source_labels[app_fsm->experimental_time_settings.source]);
     variable_item_set_current_value_index(app_fsm->experimental_preset_item, 0U);
-    variable_item_set_current_value_text(
-        app_fsm->experimental_preset_item, app_fsm->experimental_preset_text);
+    variable_item_set_current_value_text(app_fsm->experimental_preset_item, "");
     variable_item_set_current_value_index(
         app_fsm->experimental_direction_item,
         dcf77_experimental_time_direction_to_index(app_fsm->experimental_time_settings.direction));
@@ -640,7 +639,11 @@ bool dcf77_experimental_time_settings_input_callback(InputEvent* event, void* ct
         }
         return false;
     case InputKeyOk:
-        return selected == Dcf77ExperimentalTimeSettingPreset;
+        if(selected == Dcf77ExperimentalTimeSettingPreset) {
+            dcf77_app_switch_to_preset_time_input(app_fsm);
+            return true;
+        }
+        return false;
     default:
         return false;
     }
