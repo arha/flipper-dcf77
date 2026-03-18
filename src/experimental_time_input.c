@@ -7,12 +7,19 @@
 
 struct Dcf77ExperimentalTimeInput {
     View* view;
+    Dcf77ExperimentalTimeInputPreviousCallback previous_callback;
+    void* previous_callback_context;
 };
 
 typedef struct {
     DateTime datetime;
     uint8_t field;
 } Dcf77ExperimentalTimeInputModel;
+
+#define DCF77_EXPERIMENTAL_TIME_INPUT_FIELD_COUNT 5U
+#define DCF77_EXPERIMENTAL_TIME_INPUT_VALUE_HEIGHT 18U
+#define DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y 5U
+#define DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y 39U
 
 static uint8_t dcf77_experimental_time_input_days_per_month(uint8_t month, uint16_t year) {
     if(month < 1U || month > 12U) {
@@ -23,8 +30,8 @@ static uint8_t dcf77_experimental_time_input_days_per_month(uint8_t month, uint1
 }
 
 static void dcf77_experimental_time_input_normalize_date(DateTime* datetime) {
-    if(datetime->year < 1970U) {
-        datetime->year = 1970U;
+    if(datetime->year < 2000U) {
+        datetime->year = 2000U;
     } else if(datetime->year > 2069U) {
         datetime->year = 2069U;
     }
@@ -68,11 +75,39 @@ static void dcf77_experimental_time_input_draw_value(
 
     canvas_set_font(canvas, FontBigNumbers);
     canvas_draw_str_aligned(
-        canvas, x + (int32_t)(width / 2U), y + 14, AlignCenter, AlignBottom, text);
+        canvas, x + (int32_t)(width / 2U), y + 16, AlignCenter, AlignBottom, text);
 
     if(active) {
         canvas_set_color(canvas, ColorBlack);
     }
+}
+
+static void dcf77_experimental_time_input_draw_triangle_up(Canvas* canvas, int32_t center_x, int32_t base_y) {
+    canvas_draw_line(canvas, center_x, base_y - 2, center_x, base_y - 2);
+    canvas_draw_line(canvas, center_x - 1, base_y - 1, center_x + 1, base_y - 1);
+    canvas_draw_line(canvas, center_x - 2, base_y, center_x + 2, base_y);
+}
+
+static void dcf77_experimental_time_input_draw_triangle_down(Canvas* canvas, int32_t center_x, int32_t top_y) {
+    canvas_draw_line(canvas, center_x - 2, top_y, center_x + 2, top_y);
+    canvas_draw_line(canvas, center_x - 1, top_y + 1, center_x + 1, top_y + 1);
+    canvas_draw_line(canvas, center_x, top_y + 2, center_x, top_y + 2);
+}
+
+static void dcf77_experimental_time_input_draw_focus(
+    Canvas* canvas,
+    int32_t x,
+    int32_t y,
+    size_t width,
+    bool active) {
+    if(!active) {
+        return;
+    }
+
+    const int32_t center_x = x + (int32_t)(width / 2U);
+    dcf77_experimental_time_input_draw_triangle_up(canvas, center_x, y - 2);
+    dcf77_experimental_time_input_draw_triangle_down(
+        canvas, center_x, y + (int32_t)DCF77_EXPERIMENTAL_TIME_INPUT_VALUE_HEIGHT + 1);
 }
 
 static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* context) {
@@ -91,22 +126,34 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     snprintf(hour_text, sizeof(hour_text), "%02u", model->datetime.hour);
     snprintf(minute_text, sizeof(minute_text), "%02u", model->datetime.minute);
 
-    dcf77_experimental_time_input_draw_value(canvas, 4, 2, 28U, day_text, model->field == 0U);
-    canvas_draw_box(canvas, 35, 14, 2, 2);
-    dcf77_experimental_time_input_draw_value(canvas, 40, 2, 28U, month_text, model->field == 1U);
-    canvas_draw_box(canvas, 71, 14, 2, 2);
-    dcf77_experimental_time_input_draw_value(canvas, 76, 2, 48U, year_text, model->field == 2U);
+    dcf77_experimental_time_input_draw_focus(
+        canvas, 4, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 28U, model->field == 0U);
+    dcf77_experimental_time_input_draw_value(
+        canvas, 4, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 28U, day_text, model->field == 0U);
+    canvas_draw_box(canvas, 35, 17, 2, 2);
+    dcf77_experimental_time_input_draw_focus(
+        canvas, 40, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 28U, model->field == 1U);
+    dcf77_experimental_time_input_draw_value(
+        canvas, 40, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 28U, month_text, model->field == 1U);
+    canvas_draw_box(canvas, 70, 17, 2, 2);
+    dcf77_experimental_time_input_draw_focus(
+        canvas, 74, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 52U, model->field == 2U);
+    dcf77_experimental_time_input_draw_value(
+        canvas, 74, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 52U, year_text, model->field == 2U);
 
     canvas_set_font(canvas, FontSecondary);
     canvas_draw_str_aligned(
-        canvas, 18, 28, AlignCenter, AlignBottom, weekday_labels[(weekday <= 7U) ? weekday : 0U]);
+        canvas, 64, 31, AlignCenter, AlignCenter, weekday_labels[(weekday <= 7U) ? weekday : 0U]);
 
-    dcf77_experimental_time_input_draw_value(canvas, 24, 34, 28U, hour_text, model->field == 3U);
-    canvas_draw_box(canvas, 62, 46, 2, 2);
-    dcf77_experimental_time_input_draw_value(canvas, 74, 34, 28U, minute_text, model->field == 4U);
-
-    canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str_aligned(canvas, 64, 62, AlignCenter, AlignBottom, "Back to save");
+    dcf77_experimental_time_input_draw_focus(
+        canvas, 24, DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y, 28U, model->field == 3U);
+    dcf77_experimental_time_input_draw_value(
+        canvas, 24, DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y, 28U, hour_text, model->field == 3U);
+    canvas_draw_box(canvas, 62, 51, 2, 2);
+    dcf77_experimental_time_input_draw_focus(
+        canvas, 74, DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y, 28U, model->field == 4U);
+    dcf77_experimental_time_input_draw_value(
+        canvas, 74, DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y, 28U, minute_text, model->field == 4U);
 }
 
 static bool dcf77_experimental_time_input_step_field(
@@ -135,9 +182,9 @@ static bool dcf77_experimental_time_input_step_field(
 
     if(model->field == 2U) {
         if(increment) {
-            model->datetime.year = (model->datetime.year >= 2069U) ? 1970U : model->datetime.year + 1U;
+            model->datetime.year = (model->datetime.year >= 2069U) ? 2000U : model->datetime.year + 1U;
         } else {
-            model->datetime.year = (model->datetime.year <= 1970U) ? 2069U : model->datetime.year - 1U;
+            model->datetime.year = (model->datetime.year <= 2000U) ? 2069U : model->datetime.year - 1U;
         }
         dcf77_experimental_time_input_normalize_date(&model->datetime);
         return true;
@@ -176,11 +223,15 @@ static bool dcf77_experimental_time_input_input_callback(InputEvent* event, void
                 if(event->key == InputKeyLeft) {
                     if(model->field > 0U) {
                         model->field--;
+                    } else {
+                        model->field = DCF77_EXPERIMENTAL_TIME_INPUT_FIELD_COUNT - 1U;
                     }
                     consumed = true;
                 } else if(event->key == InputKeyRight) {
-                    if(model->field < 4U) {
+                    if(model->field + 1U < DCF77_EXPERIMENTAL_TIME_INPUT_FIELD_COUNT) {
                         model->field++;
+                    } else {
+                        model->field = 0U;
                     }
                     consumed = true;
                 } else if(event->key == InputKeyUp) {
@@ -193,6 +244,16 @@ static bool dcf77_experimental_time_input_input_callback(InputEvent* event, void
         consumed);
 
     return consumed;
+}
+
+static uint32_t dcf77_experimental_time_input_previous_callback(void* context) {
+    Dcf77ExperimentalTimeInput* instance = context;
+
+    if(instance == NULL || instance->previous_callback == NULL) {
+        return VIEW_NONE;
+    }
+
+    return instance->previous_callback(instance->previous_callback_context);
 }
 
 Dcf77ExperimentalTimeInput* dcf77_experimental_time_input_alloc(void) {
@@ -208,6 +269,8 @@ Dcf77ExperimentalTimeInput* dcf77_experimental_time_input_alloc(void) {
     };
 
     instance->view = view_alloc();
+    instance->previous_callback = NULL;
+    instance->previous_callback_context = NULL;
     view_allocate_model(
         instance->view, ViewModelTypeLocking, sizeof(Dcf77ExperimentalTimeInputModel));
     with_view_model(
@@ -221,6 +284,7 @@ Dcf77ExperimentalTimeInput* dcf77_experimental_time_input_alloc(void) {
     view_set_context(instance->view, instance);
     view_set_draw_callback(instance->view, dcf77_experimental_time_input_draw_callback);
     view_set_input_callback(instance->view, dcf77_experimental_time_input_input_callback);
+    view_set_previous_callback(instance->view, dcf77_experimental_time_input_previous_callback);
 
     return instance;
 }
@@ -236,6 +300,18 @@ void dcf77_experimental_time_input_free(Dcf77ExperimentalTimeInput* instance) {
 
 View* dcf77_experimental_time_input_get_view(Dcf77ExperimentalTimeInput* instance) {
     return instance->view;
+}
+
+void dcf77_experimental_time_input_set_previous_callback(
+    Dcf77ExperimentalTimeInput* instance,
+    Dcf77ExperimentalTimeInputPreviousCallback callback,
+    void* context) {
+    if(instance == NULL) {
+        return;
+    }
+
+    instance->previous_callback = callback;
+    instance->previous_callback_context = context;
 }
 
 void dcf77_experimental_time_input_set(

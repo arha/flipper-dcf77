@@ -177,12 +177,9 @@ void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm) {
     snprintf(
         app_fsm->experimental_preset_text,
         sizeof(app_fsm->experimental_preset_text),
-        "%02u.%02u %02u:%02u:%02u",
-        preset->day,
-        preset->month,
+        "%02u:%02u",
         preset->hour,
-        preset->minute,
-        preset->second);
+        preset->minute);
     snprintf(
         app_fsm->experimental_speed_text,
         sizeof(app_fsm->experimental_speed_text),

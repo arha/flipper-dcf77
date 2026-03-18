@@ -378,7 +378,7 @@ void dcf77_gui_init(AppFSM* app_fsm) {
 
     app_fsm->experimental_time_settings_view = variable_item_list_alloc();
     app_fsm->experimental_time_enabled_item = variable_item_list_add(
-        app_fsm->experimental_time_settings_view, "Experimental time", 2, NULL, app_fsm);
+        app_fsm->experimental_time_settings_view, "Enabled", 2, NULL, app_fsm);
     app_fsm->experimental_time_source_item = variable_item_list_add(
         app_fsm->experimental_time_settings_view,
         "Time source",
@@ -444,9 +444,8 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         number_input_get_view(app_fsm->subghz_freq_input));
 
     app_fsm->preset_time_input = dcf77_experimental_time_input_alloc();
-    view_set_previous_callback(
-        dcf77_experimental_time_input_get_view(app_fsm->preset_time_input),
-        dcf77_preset_time_input_previous_callback);
+    dcf77_experimental_time_input_set_previous_callback(
+        app_fsm->preset_time_input, dcf77_preset_time_input_previous_callback, app_fsm);
     view_dispatcher_add_view(
         app_fsm->view_dispatcher,
         Dcf77ViewPresetTimeInput,
