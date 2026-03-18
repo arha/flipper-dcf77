@@ -14,14 +14,12 @@ typedef struct {
     uint8_t field;
 } Dcf77ExperimentalTimeInputModel;
 
-static uint8_t dcf77_experimental_time_input_days_per_month(uint8_t month) {
-    static const uint8_t days_per_month[] = {31U, 29U, 31U, 30U, 31U, 30U, 31U, 31U, 30U, 31U, 30U, 31U};
-
+static uint8_t dcf77_experimental_time_input_days_per_month(uint8_t month, uint16_t year) {
     if(month < 1U || month > 12U) {
         return 31U;
     }
 
-    return days_per_month[month - 1U];
+    return datetime_get_days_per_month(datetime_is_leap_year(year), month);
 }
 
 static void dcf77_experimental_time_input_normalize_date(DateTime* datetime) {
@@ -37,12 +35,19 @@ static void dcf77_experimental_time_input_normalize_date(DateTime* datetime) {
         datetime->month = 12U;
     }
 
-    const uint8_t max_day = dcf77_experimental_time_input_days_per_month(datetime->month);
+    const uint8_t max_day = dcf77_experimental_time_input_days_per_month(datetime->month, datetime->year);
     if(datetime->day < 1U) {
         datetime->day = 1U;
     } else if(datetime->day > max_day) {
         datetime->day = max_day;
     }
+}
+
+static uint8_t dcf77_experimental_time_input_weekday(const DateTime* datetime) {
+    DateTime normalized = *datetime;
+    const uint32_t timestamp = datetime_datetime_to_timestamp(&normalized);
+    datetime_timestamp_to_datetime(timestamp, &normalized);
+    return normalized.weekday;
 }
 
 static void dcf77_experimental_time_input_draw_value(
@@ -71,23 +76,30 @@ static void dcf77_experimental_time_input_draw_value(
 }
 
 static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* context) {
+    static const char* const weekday_labels[] = {"?", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
     Dcf77ExperimentalTimeInputModel* model = context;
     char day_text[4];
     char month_text[4];
     char year_text[6];
+    const uint8_t weekday = dcf77_experimental_time_input_weekday(&model->datetime);
 
     snprintf(day_text, sizeof(day_text), "%02u", model->datetime.day);
     snprintf(month_text, sizeof(month_text), "%02u", model->datetime.month);
     snprintf(year_text, sizeof(year_text), "%04u", model->datetime.year);
 
-    canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str_aligned(canvas, 64, 6, AlignCenter, AlignTop, "Preset time");
+    dcf77_experimental_time_input_draw_value(canvas, 4, 2, 28U, day_text, model->field == 0U);
+    canvas_draw_box(canvas, 35, 14, 2, 2);
+    dcf77_experimental_time_input_draw_value(canvas, 40, 2, 28U, month_text, model->field == 1U);
+    canvas_draw_box(canvas, 71, 14, 2, 2);
+    dcf77_experimental_time_input_draw_value(canvas, 76, 2, 48U, year_text, model->field == 2U);
 
-    dcf77_experimental_time_input_draw_value(canvas, 4, 16, 28U, day_text, model->field == 0U);
-    canvas_draw_box(canvas, 35, 28, 2, 2);
-    dcf77_experimental_time_input_draw_value(canvas, 40, 16, 28U, month_text, model->field == 1U);
-    canvas_draw_box(canvas, 71, 28, 2, 2);
-    dcf77_experimental_time_input_draw_value(canvas, 76, 16, 48U, year_text, model->field == 2U);
+    canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str_aligned(
+        canvas, 18, 28, AlignCenter, AlignBottom, weekday_labels[(weekday <= 7U) ? weekday : 0U]);
+
+    dcf77_experimental_time_input_draw_value(canvas, 24, 34, 28U, "24", model->field == 3U);
+    canvas_draw_box(canvas, 62, 46, 2, 2);
+    dcf77_experimental_time_input_draw_value(canvas, 74, 34, 28U, "69", model->field == 4U);
 
     canvas_set_font(canvas, FontSecondary);
     canvas_draw_str_aligned(canvas, 64, 62, AlignCenter, AlignBottom, "Back to save");
@@ -97,7 +109,8 @@ static bool dcf77_experimental_time_input_step_field(
     Dcf77ExperimentalTimeInputModel* model,
     bool increment) {
     if(model->field == 0U) {
-        const uint8_t max_day = dcf77_experimental_time_input_days_per_month(model->datetime.month);
+        const uint8_t max_day =
+            dcf77_experimental_time_input_days_per_month(model->datetime.month, model->datetime.year);
         if(increment) {
             model->datetime.day = (model->datetime.day >= max_day) ? 1U : model->datetime.day + 1U;
         } else {
@@ -144,7 +157,7 @@ static bool dcf77_experimental_time_input_input_callback(InputEvent* event, void
                     }
                     consumed = true;
                 } else if(event->key == InputKeyRight) {
-                    if(model->field < 2U) {
+                    if(model->field < 4U) {
                         model->field++;
                     }
                     consumed = true;
