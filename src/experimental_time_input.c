@@ -1,6 +1,8 @@
 #include "experimental_time_input.h"
 
 #include <gui/elements.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 struct Dcf77ExperimentalTimeInput {
@@ -9,16 +11,55 @@ struct Dcf77ExperimentalTimeInput {
 
 typedef struct {
     DateTime datetime;
-    bool editing;
-    uint8_t row;
-    uint8_t column;
+    uint8_t field;
 } Dcf77ExperimentalTimeInputModel;
+
+static void dcf77_experimental_time_input_draw_value(
+    Canvas* canvas,
+    int32_t x,
+    int32_t y,
+    size_t width,
+    const char* text,
+    bool active) {
+    canvas_set_color(canvas, ColorBlack);
+
+    if(active) {
+        canvas_draw_box(canvas, x, y, width, 18);
+        canvas_set_color(canvas, ColorWhite);
+    } else {
+        canvas_draw_frame(canvas, x, y, width, 18);
+    }
+
+    canvas_set_font(canvas, FontBigNumbers);
+    canvas_draw_str_aligned(
+        canvas, x + (int32_t)(width / 2U), y + 14, AlignCenter, AlignBottom, text);
+
+    if(active) {
+        canvas_set_color(canvas, ColorBlack);
+    }
+}
 
 static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* context) {
     Dcf77ExperimentalTimeInputModel* model = context;
-    UNUSED(model);
-    canvas_set_font(canvas, FontPrimary);
-    canvas_draw_str_aligned(canvas, 64, 32, AlignCenter, AlignCenter, "TODO LOL");
+    char day_text[4];
+    char month_text[4];
+    char year_text[6];
+
+    snprintf(day_text, sizeof(day_text), "%02u", model->datetime.day);
+    snprintf(month_text, sizeof(month_text), "%02u", model->datetime.month);
+    snprintf(year_text, sizeof(year_text), "%04u", model->datetime.year);
+
+    canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str_aligned(canvas, 64, 6, AlignCenter, AlignTop, "Preset time");
+
+    dcf77_experimental_time_input_draw_value(canvas, 4, 16, 28U, day_text, model->field == 0U);
+    canvas_draw_box(canvas, 35, 28, 2, 2);
+    dcf77_experimental_time_input_draw_value(canvas, 40, 16, 28U, month_text, model->field == 1U);
+    canvas_draw_box(canvas, 71, 28, 2, 2);
+    dcf77_experimental_time_input_draw_value(canvas, 76, 16, 48U, year_text, model->field == 2U);
+
+    canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str_aligned(canvas, 64, 62, AlignCenter, AlignBottom, "Back to save");
 }
 
 static bool dcf77_experimental_time_input_input_callback(InputEvent* event, void* context) {
@@ -47,6 +88,7 @@ Dcf77ExperimentalTimeInput* dcf77_experimental_time_input_alloc(void) {
         Dcf77ExperimentalTimeInputModel * model,
         {
             model->datetime = default_datetime;
+            model->field = 0U;
         },
         false);
     view_set_context(instance->view, instance);
@@ -81,6 +123,7 @@ void dcf77_experimental_time_input_set(
         Dcf77ExperimentalTimeInputModel * model,
         {
             model->datetime = *datetime;
+            model->field = 0U;
         },
         true);
 }
