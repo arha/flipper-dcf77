@@ -81,11 +81,15 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     char day_text[4];
     char month_text[4];
     char year_text[6];
+    char hour_text[4];
+    char minute_text[4];
     const uint8_t weekday = dcf77_experimental_time_input_weekday(&model->datetime);
 
     snprintf(day_text, sizeof(day_text), "%02u", model->datetime.day);
     snprintf(month_text, sizeof(month_text), "%02u", model->datetime.month);
     snprintf(year_text, sizeof(year_text), "%04u", model->datetime.year);
+    snprintf(hour_text, sizeof(hour_text), "%02u", model->datetime.hour);
+    snprintf(minute_text, sizeof(minute_text), "%02u", model->datetime.minute);
 
     dcf77_experimental_time_input_draw_value(canvas, 4, 2, 28U, day_text, model->field == 0U);
     canvas_draw_box(canvas, 35, 14, 2, 2);
@@ -97,9 +101,9 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     canvas_draw_str_aligned(
         canvas, 18, 28, AlignCenter, AlignBottom, weekday_labels[(weekday <= 7U) ? weekday : 0U]);
 
-    dcf77_experimental_time_input_draw_value(canvas, 24, 34, 28U, "24", model->field == 3U);
+    dcf77_experimental_time_input_draw_value(canvas, 24, 34, 28U, hour_text, model->field == 3U);
     canvas_draw_box(canvas, 62, 46, 2, 2);
-    dcf77_experimental_time_input_draw_value(canvas, 74, 34, 28U, "69", model->field == 4U);
+    dcf77_experimental_time_input_draw_value(canvas, 74, 34, 28U, minute_text, model->field == 4U);
 
     canvas_set_font(canvas, FontSecondary);
     canvas_draw_str_aligned(canvas, 64, 62, AlignCenter, AlignBottom, "Back to save");
@@ -136,6 +140,24 @@ static bool dcf77_experimental_time_input_step_field(
             model->datetime.year = (model->datetime.year <= 1970U) ? 2069U : model->datetime.year - 1U;
         }
         dcf77_experimental_time_input_normalize_date(&model->datetime);
+        return true;
+    }
+
+    if(model->field == 3U) {
+        if(increment) {
+            model->datetime.hour = (model->datetime.hour >= 23U) ? 0U : model->datetime.hour + 1U;
+        } else {
+            model->datetime.hour = (model->datetime.hour == 0U) ? 23U : model->datetime.hour - 1U;
+        }
+        return true;
+    }
+
+    if(model->field == 4U) {
+        if(increment) {
+            model->datetime.minute = (model->datetime.minute >= 59U) ? 0U : model->datetime.minute + 1U;
+        } else {
+            model->datetime.minute = (model->datetime.minute == 0U) ? 59U : model->datetime.minute - 1U;
+        }
         return true;
     }
 
