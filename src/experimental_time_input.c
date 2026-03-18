@@ -62,10 +62,61 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     canvas_draw_str_aligned(canvas, 64, 62, AlignCenter, AlignBottom, "Back to save");
 }
 
-static bool dcf77_experimental_time_input_input_callback(InputEvent* event, void* context) {
-    UNUSED(event);
-    UNUSED(context);
+static bool dcf77_experimental_time_input_step_field(
+    Dcf77ExperimentalTimeInputModel* model,
+    bool increment) {
+    if(model->field == 0U) {
+        model->datetime.day = increment ? model->datetime.day + 1U : model->datetime.day - 1U;
+        return true;
+    }
+
+    if(model->field == 1U) {
+        model->datetime.month =
+            increment ? model->datetime.month + 1U : model->datetime.month - 1U;
+        return true;
+    }
+
+    if(model->field == 2U) {
+        if(increment) {
+            model->datetime.year = (model->datetime.year + 1U) % 10000U;
+        } else {
+            model->datetime.year = (model->datetime.year == 0U) ? 9999U : model->datetime.year - 1U;
+        }
+        return true;
+    }
+
     return false;
+}
+
+static bool dcf77_experimental_time_input_input_callback(InputEvent* event, void* context) {
+    Dcf77ExperimentalTimeInput* instance = context;
+    bool consumed = false;
+
+    with_view_model(
+        instance->view,
+        Dcf77ExperimentalTimeInputModel * model,
+        {
+            if(event->type == InputTypeShort || event->type == InputTypeRepeat) {
+                if(event->key == InputKeyLeft) {
+                    if(model->field > 0U) {
+                        model->field--;
+                    }
+                    consumed = true;
+                } else if(event->key == InputKeyRight) {
+                    if(model->field < 2U) {
+                        model->field++;
+                    }
+                    consumed = true;
+                } else if(event->key == InputKeyUp) {
+                    consumed = dcf77_experimental_time_input_step_field(model, true);
+                } else if(event->key == InputKeyDown) {
+                    consumed = dcf77_experimental_time_input_step_field(model, false);
+                }
+            }
+        },
+        consumed);
+
+    return consumed;
 }
 
 Dcf77ExperimentalTimeInput* dcf77_experimental_time_input_alloc(void) {
