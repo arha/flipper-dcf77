@@ -14,6 +14,37 @@ typedef struct {
     uint8_t field;
 } Dcf77ExperimentalTimeInputModel;
 
+static uint8_t dcf77_experimental_time_input_days_per_month(uint8_t month) {
+    static const uint8_t days_per_month[] = {31U, 29U, 31U, 30U, 31U, 30U, 31U, 31U, 30U, 31U, 30U, 31U};
+
+    if(month < 1U || month > 12U) {
+        return 31U;
+    }
+
+    return days_per_month[month - 1U];
+}
+
+static void dcf77_experimental_time_input_normalize_date(DateTime* datetime) {
+    if(datetime->year < 1970U) {
+        datetime->year = 1970U;
+    } else if(datetime->year > 2069U) {
+        datetime->year = 2069U;
+    }
+
+    if(datetime->month < 1U) {
+        datetime->month = 1U;
+    } else if(datetime->month > 12U) {
+        datetime->month = 12U;
+    }
+
+    const uint8_t max_day = dcf77_experimental_time_input_days_per_month(datetime->month);
+    if(datetime->day < 1U) {
+        datetime->day = 1U;
+    } else if(datetime->day > max_day) {
+        datetime->day = max_day;
+    }
+}
+
 static void dcf77_experimental_time_input_draw_value(
     Canvas* canvas,
     int32_t x,
@@ -66,22 +97,32 @@ static bool dcf77_experimental_time_input_step_field(
     Dcf77ExperimentalTimeInputModel* model,
     bool increment) {
     if(model->field == 0U) {
-        model->datetime.day = increment ? model->datetime.day + 1U : model->datetime.day - 1U;
+        const uint8_t max_day = dcf77_experimental_time_input_days_per_month(model->datetime.month);
+        if(increment) {
+            model->datetime.day = (model->datetime.day >= max_day) ? 1U : model->datetime.day + 1U;
+        } else {
+            model->datetime.day = (model->datetime.day <= 1U) ? max_day : model->datetime.day - 1U;
+        }
         return true;
     }
 
     if(model->field == 1U) {
-        model->datetime.month =
-            increment ? model->datetime.month + 1U : model->datetime.month - 1U;
+        if(increment) {
+            model->datetime.month = (model->datetime.month >= 12U) ? 1U : model->datetime.month + 1U;
+        } else {
+            model->datetime.month = (model->datetime.month <= 1U) ? 12U : model->datetime.month - 1U;
+        }
+        dcf77_experimental_time_input_normalize_date(&model->datetime);
         return true;
     }
 
     if(model->field == 2U) {
         if(increment) {
-            model->datetime.year = (model->datetime.year + 1U) % 10000U;
+            model->datetime.year = (model->datetime.year >= 2069U) ? 1970U : model->datetime.year + 1U;
         } else {
-            model->datetime.year = (model->datetime.year == 0U) ? 9999U : model->datetime.year - 1U;
+            model->datetime.year = (model->datetime.year <= 1970U) ? 2069U : model->datetime.year - 1U;
         }
+        dcf77_experimental_time_input_normalize_date(&model->datetime);
         return true;
     }
 
@@ -174,6 +215,7 @@ void dcf77_experimental_time_input_set(
         Dcf77ExperimentalTimeInputModel * model,
         {
             model->datetime = *datetime;
+            dcf77_experimental_time_input_normalize_date(&model->datetime);
             model->field = 0U;
         },
         true);
