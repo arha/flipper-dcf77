@@ -113,6 +113,8 @@ static void dcf77_experimental_time_input_draw_focus(
 
 static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* context) {
     static const char* const weekday_labels[] = {"?", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+    static const char* const month_labels[] = {
+        "?", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
     Dcf77ExperimentalTimeInputModel* model = context;
     char day_text[4];
     char month_text[4];
@@ -120,6 +122,7 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     char hour_text[4];
     char minute_text[4];
     char second_text[4];
+    char date_text[16];
     const uint8_t weekday = dcf77_experimental_time_input_weekday(&model->datetime);
 
     snprintf(day_text, sizeof(day_text), "%02u", model->datetime.day);
@@ -128,6 +131,13 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     snprintf(hour_text, sizeof(hour_text), "%02u", model->datetime.hour);
     snprintf(minute_text, sizeof(minute_text), "%02u", model->datetime.minute);
     snprintf(second_text, sizeof(second_text), "%02u", model->datetime.second);
+    snprintf(
+        date_text,
+        sizeof(date_text),
+        "%s, %u %s",
+        weekday_labels[(weekday <= 7U) ? weekday : 0U],
+        model->datetime.day,
+        month_labels[(model->datetime.month <= 12U) ? model->datetime.month : 0U]);
 
     dcf77_experimental_time_input_draw_focus(
         canvas, 4, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 28U, model->field == 0U);
@@ -145,8 +155,7 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
         canvas, 74, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 52U, year_text, model->field == 2U);
 
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str_aligned(
-        canvas, 64, 31, AlignCenter, AlignCenter, weekday_labels[(weekday <= 7U) ? weekday : 0U]);
+    canvas_draw_str_aligned(canvas, 64, 31, AlignCenter, AlignCenter, date_text);
 
     dcf77_experimental_time_input_draw_focus(
         canvas,
