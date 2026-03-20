@@ -16,10 +16,11 @@ typedef struct {
     uint8_t field;
 } Dcf77ExperimentalTimeInputModel;
 
-#define DCF77_EXPERIMENTAL_TIME_INPUT_FIELD_COUNT 5U
+#define DCF77_EXPERIMENTAL_TIME_INPUT_FIELD_COUNT 6U
 #define DCF77_EXPERIMENTAL_TIME_INPUT_VALUE_HEIGHT 18U
 #define DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y 5U
 #define DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y 39U
+#define DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH 24U
 
 static uint8_t dcf77_experimental_time_input_days_per_month(uint8_t month, uint16_t year) {
     if(month < 1U || month > 12U) {
@@ -118,6 +119,7 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     char year_text[6];
     char hour_text[4];
     char minute_text[4];
+    char second_text[4];
     const uint8_t weekday = dcf77_experimental_time_input_weekday(&model->datetime);
 
     snprintf(day_text, sizeof(day_text), "%02u", model->datetime.day);
@@ -125,6 +127,7 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     snprintf(year_text, sizeof(year_text), "%04u", model->datetime.year);
     snprintf(hour_text, sizeof(hour_text), "%02u", model->datetime.hour);
     snprintf(minute_text, sizeof(minute_text), "%02u", model->datetime.minute);
+    snprintf(second_text, sizeof(second_text), "%02u", model->datetime.second);
 
     dcf77_experimental_time_input_draw_focus(
         canvas, 4, DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y, 28U, model->field == 0U);
@@ -146,14 +149,46 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
         canvas, 64, 31, AlignCenter, AlignCenter, weekday_labels[(weekday <= 7U) ? weekday : 0U]);
 
     dcf77_experimental_time_input_draw_focus(
-        canvas, 24, DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y, 28U, model->field == 3U);
+        canvas,
+        10,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
+        model->field == 3U);
     dcf77_experimental_time_input_draw_value(
-        canvas, 24, DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y, 28U, hour_text, model->field == 3U);
-    canvas_draw_box(canvas, 62, 51, 2, 2);
+        canvas,
+        10,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
+        hour_text,
+        model->field == 3U);
+    canvas_draw_box(canvas, 40, 51, 2, 2);
     dcf77_experimental_time_input_draw_focus(
-        canvas, 74, DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y, 28U, model->field == 4U);
+        canvas,
+        52,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
+        model->field == 4U);
     dcf77_experimental_time_input_draw_value(
-        canvas, 74, DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y, 28U, minute_text, model->field == 4U);
+        canvas,
+        52,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
+        minute_text,
+        model->field == 4U);
+    canvas_draw_box(canvas, 82, 51, 2, 2);
+    dcf77_experimental_time_input_draw_focus(
+        canvas,
+        94,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
+        model->field == 5U);
+    dcf77_experimental_time_input_draw_value(
+        canvas,
+        94,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
+        DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
+        second_text,
+        model->field == 5U);
 }
 
 static bool dcf77_experimental_time_input_step_field(
@@ -204,6 +239,15 @@ static bool dcf77_experimental_time_input_step_field(
             model->datetime.minute = (model->datetime.minute >= 59U) ? 0U : model->datetime.minute + 1U;
         } else {
             model->datetime.minute = (model->datetime.minute == 0U) ? 59U : model->datetime.minute - 1U;
+        }
+        return true;
+    }
+
+    if(model->field == 5U) {
+        if(increment) {
+            model->datetime.second = (model->datetime.second >= 59U) ? 0U : model->datetime.second + 1U;
+        } else {
+            model->datetime.second = (model->datetime.second == 0U) ? 59U : model->datetime.second - 1U;
         }
         return true;
     }
