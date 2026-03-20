@@ -20,7 +20,7 @@ typedef struct {
 #define DCF77_EXPERIMENTAL_TIME_INPUT_VALUE_HEIGHT 18U
 #define DCF77_EXPERIMENTAL_TIME_INPUT_DATE_Y 5U
 #define DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y 39U
-#define DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH 24U
+#define DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH 28U
 
 static uint8_t dcf77_experimental_time_input_days_per_month(uint8_t month, uint16_t year) {
     if(month < 1U || month > 12U) {
@@ -150,13 +150,13 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
 
     dcf77_experimental_time_input_draw_focus(
         canvas,
-        10,
+        8,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
         model->field == 3U);
     dcf77_experimental_time_input_draw_value(
         canvas,
-        10,
+        8,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
         hour_text,
@@ -164,13 +164,13 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     canvas_draw_box(canvas, 40, 51, 2, 2);
     dcf77_experimental_time_input_draw_focus(
         canvas,
-        52,
+        50,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
         model->field == 4U);
     dcf77_experimental_time_input_draw_value(
         canvas,
-        52,
+        50,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
         minute_text,
@@ -178,13 +178,13 @@ static void dcf77_experimental_time_input_draw_callback(Canvas* canvas, void* co
     canvas_draw_box(canvas, 82, 51, 2, 2);
     dcf77_experimental_time_input_draw_focus(
         canvas,
-        94,
+        92,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
         model->field == 5U);
     dcf77_experimental_time_input_draw_value(
         canvas,
-        94,
+        92,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_Y,
         DCF77_EXPERIMENTAL_TIME_INPUT_TIME_BOX_WIDTH,
         second_text,
