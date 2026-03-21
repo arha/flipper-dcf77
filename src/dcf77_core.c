@@ -171,7 +171,21 @@ void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm) {
 
 void dcf77_app_update_experimental_time_texts(AppFSM* app_fsm) {
     static const char* const dcf77_experimental_time_speed_labels[] = {
-        "5 min", "4 min", "3 min", "2 min", "60s", "30 sec", "20 sec", "15 sec", "12 sec"};
+        "1 h",
+        "12 min",
+        "6 min",
+        "5 min",
+        "4 min",
+        "3 min",
+        "2 min",
+        "60s",
+        "30 sec",
+        "20 sec",
+        "15 sec",
+        "12 sec",
+        "10 sec",
+        "5 sec",
+        "1 sec"};
     const DateTime* preset = &app_fsm->experimental_time_settings.preset_datetime;
 
     snprintf(
@@ -316,20 +330,29 @@ void dcf77_app_set_experimental_time_direction(
 }
 
 void dcf77_app_set_experimental_time_speed_index(AppFSM* app_fsm, uint8_t speed_index) {
-    if(speed_index > 8U) {
-        speed_index = 8U;
+    if(speed_index > 14U) {
+        speed_index = 14U;
     }
 
     app_fsm->experimental_time_speed_index = speed_index;
 
-    if(speed_index < 4U) {
-        app_fsm->experimental_time_settings.speedup = 1U;
-        app_fsm->experimental_time_settings.slowdown = 5U - speed_index;
-    } else if(speed_index == 4U) {
+    if(speed_index < 7U) {
+        if(speed_index < 3U) {
+            app_fsm->experimental_time_settings.speedup = 1U;
+            app_fsm->experimental_time_settings.slowdown = 1U;
+        } else {
+            app_fsm->experimental_time_settings.speedup = 1U;
+            app_fsm->experimental_time_settings.slowdown = 8U - speed_index;
+        }
+    } else if(speed_index == 7U) {
         app_fsm->experimental_time_settings.speedup = 1U;
         app_fsm->experimental_time_settings.slowdown = 1U;
     } else {
-        app_fsm->experimental_time_settings.speedup = speed_index - 3U;
+        if(speed_index > 11U) {
+            app_fsm->experimental_time_settings.speedup = 1U;
+        } else {
+            app_fsm->experimental_time_settings.speedup = speed_index - 6U;
+        }
         app_fsm->experimental_time_settings.slowdown = 1U;
     }
 
