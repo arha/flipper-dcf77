@@ -151,14 +151,48 @@ static void dcf77_app_seed_subghz_defaults(AppFSM* app_fsm) {
 
 static uint8_t dcf77_app_get_experimental_time_speed_index(const AppFSM* app_fsm) {
     if(app_fsm->experimental_time_settings.slowdown > 1U) {
-        return 5U - app_fsm->experimental_time_settings.slowdown;
+        switch(app_fsm->experimental_time_settings.slowdown) {
+        case 60U:
+            return 0U;
+        case 12U:
+            return 1U;
+        case 6U:
+            return 2U;
+        case 5U:
+            return 3U;
+        case 4U:
+            return 4U;
+        case 3U:
+            return 5U;
+        case 2U:
+            return 6U;
+        default:
+            return 7U;
+        }
     }
 
     if(app_fsm->experimental_time_settings.speedup > 1U) {
-        return app_fsm->experimental_time_settings.speedup + 3U;
+        switch(app_fsm->experimental_time_settings.speedup) {
+        case 2U:
+            return 8U;
+        case 3U:
+            return 9U;
+        case 4U:
+            return 10U;
+        case 5U:
+            return 11U;
+        case 6U:
+            return 12U;
+        case 12U:
+            return 13U;
+        case 60U:
+            return 14U;
+        default:
+            return 7U;
+        }
     }
 
-    return 4U;
+    return 7U;
 }
 
 void dcf77_app_seed_experimental_preset_from_rtc(AppFSM* app_fsm) {
@@ -337,22 +371,15 @@ void dcf77_app_set_experimental_time_speed_index(AppFSM* app_fsm, uint8_t speed_
     app_fsm->experimental_time_speed_index = speed_index;
 
     if(speed_index < 7U) {
-        if(speed_index < 3U) {
-            app_fsm->experimental_time_settings.speedup = 1U;
-            app_fsm->experimental_time_settings.slowdown = 1U;
-        } else {
-            app_fsm->experimental_time_settings.speedup = 1U;
-            app_fsm->experimental_time_settings.slowdown = 8U - speed_index;
-        }
+        static const uint8_t slowdown_values[] = {60U, 12U, 6U, 5U, 4U, 3U, 2U};
+        app_fsm->experimental_time_settings.speedup = 1U;
+        app_fsm->experimental_time_settings.slowdown = slowdown_values[speed_index];
     } else if(speed_index == 7U) {
         app_fsm->experimental_time_settings.speedup = 1U;
         app_fsm->experimental_time_settings.slowdown = 1U;
     } else {
-        if(speed_index > 11U) {
-            app_fsm->experimental_time_settings.speedup = 1U;
-        } else {
-            app_fsm->experimental_time_settings.speedup = speed_index - 6U;
-        }
+        static const uint8_t speedup_values[] = {2U, 3U, 4U, 5U, 6U, 12U, 60U};
+        app_fsm->experimental_time_settings.speedup = speedup_values[speed_index - 8U];
         app_fsm->experimental_time_settings.slowdown = 1U;
     }
 

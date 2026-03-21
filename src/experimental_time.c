@@ -71,8 +71,8 @@ void dcf77_experimental_time_normalize_settings(
         settings->direction = Dcf77ExperimentalTimeDirectionForward;
     }
 
-    settings->speedup = dcf77_experimental_time_clamp_u8(settings->speedup, 1U, 5U);
-    settings->slowdown = dcf77_experimental_time_clamp_u8(settings->slowdown, 1U, 5U);
+    settings->speedup = dcf77_experimental_time_clamp_u8(settings->speedup, 1U, 60U);
+    settings->slowdown = dcf77_experimental_time_clamp_u8(settings->slowdown, 1U, 60U);
 
     if(settings->speedup > 1U) {
         settings->slowdown = 1U;
