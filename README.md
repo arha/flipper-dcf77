@@ -1,32 +1,36 @@
 # Flipper DCF77
-Now with 1.4.3 FZ superpowers!
+Compiled against 1.4.3. It's a radio clock emulator lab. 
 
-Sends the DCF77 time signal on Flipper's 125khz LFRFID antenna. This lets you update [radio clocks](https://en.wikipedia.org/wiki/Radio_clock). Defaults to 77.5khz. The baseband signal is output on C3.
+[Radio clocks](https://en.wikipedia.org/wiki/Radio_clock) set clocks around the world using very slow messages. It can do DCF77, but many other OOK protocols too. Both the baseband signal and the RF signal can be output. You can even debug it or use it as a reference for other radioclock projects - you can output the signal to SubGHZ (and hear it on something like a Baofeng), on its piezo buzzer or on its LED. 
 
-Building a portable antenna for the LF/VLF band is left as an exercise for the reader.
+It uses its internal LF antenna to do a very bad emulation of 77.5 kHz. With some receivers, it does better if you try 125 kHz - the Flipper's resonant frequency - and move it very close, overloading it. With some receivers it does nothing. If you want to build a (home/room level) antenna, either try using through a tuned ferrite rod to ground, or with a transistor driven by the RF signal output. It's not really RF though, a 77.5 kHz signal from the Flipper won't travel more than a few meters.  Building a portable antenna for the LF/VLF band is left as an exercise for the reader.
 
 # Features
 
-* Wonky time experiments: stop time, use a preset, or make minutes go slower/faster. NOTE: this only changes the timestamp the Flipper sends; to alter space-time you will need an expansion board
-* LF frequency configurable 20-200khz
-* LF test mode signal
-* Supports multiple time signals: DCF77, WWVB, MSF, JJY, BPC, BSF and HBG
-* Improved debugging: configurable GPIO output: baseband & RF, LED, buzzer and of course - SubGHZ output
-* GPIO baseband / RF output, LED preview and buzzer tone selection for debugging
+* Wonky time experiments: 
+  1. you can make time stop or go backwards
+  2. you can alter the time speed - how many seconds must pass to increment the time sent? 1 minute as usual, or 5? You could consider every 10 seconds a full minute, so minutes would pass by 6x faster. Good to shoo away annoying guests. Better if they have a radioclock watch.
+  3. NOTE: this only changes the timestamp the Flipper sends; to alter space-time you will need an expansion board
+* LF frequency configurable 20-200 kHz
+* LF test signal
+* Supports multiple time signals: DCF77, WWVB, MSF, JJY, BPC, BSF, and HBG
+* Improved debugging: configurable GPIO output: baseband & RF, LED, buzzer and, of course, SubGHz output
 * Simulate bad reception (selective TX): can send only x/y frames, ie 1/3, 7/24, etc
 
-# technical details
+# Technical details
 
-### Now with ~~more clicks needed to make it run~~ a real flipper UI!
+### Yes, it finally has an UI!
 
 * It works on every clock I own _eventually_. DCF77 is slow, it sends a complete update once per minute. Sometimes it works on the first try, sometimes I have to wait more than 5 attempts.
-* The baseband signal encodes 1 as an 800ms mark, 0 as a 900ms mark. The minute marker on second 59 lasts 1000ms. There's also a PSK modulation which FZ is not doing.
-* The transmitter is not off between marks, but is still transmitting at reduced power. This is rarely visible outside Germany. FZ is also not doing this.
-* The antenna is highly mistuned for this purpose (sending 77500Hz on a 125000Hz aerial is about 33% off).
-* Debug mode: OOK (carrier) and FSK (FM) on 433.670 - tune in with a NFM receiver
-* SubGHz TX has a timeout / safety stop now, in case you forget to turn it off
+* I only had limited hardware to test HBG and JJY, so support there is less certain. MSF, WWVB, BPC, and BSF currently have better protocol-side coverage than real-world validation.
+* Not doing anything but timed OOK. No PSK, no FSK.
+* FZ does not do power modulation, it is simply on/off. The real transmitter modulates between full and reduced power. 
+* The internal LF antenna is bad and you should feel bad for abusing it. 
+* SubGHZ debugging (FSK and especially 100% FSK) is probably not great on CC1101 long term. There's a TX timeout option included.
 
-# todo
+# Todo
 
-* simulate it just as a timezone offset (for changing clocks around your house according to your country's choice of DST madness)
-* Test it on citizen stuff: DCF77 ☑, WWVB ☑, MSF ☑, JJY ☑, BPC ☑, BSF ☑, HBG ☑. ALS162 is going to be tricky with its phase modulation. RBU might work
+* simulate it as a simple timezone offset (for changing clocks around your house according to your country's choice of DST madness)
+* Test it on citizen stuff: DCF77 ☑, WWVB ☑, MSF ☑, JJY ☑, BPC ☑, BSF ☑, HBG ☑. 
+* ALS162 is PM and it is a significant effort from OOK. I'll need a good receiver first.
+* RBU might work someday
