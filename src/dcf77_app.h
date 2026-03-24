@@ -64,10 +64,12 @@
 typedef enum {
     AppScreenStartup,
     AppScreenMenu,
+    AppScreenAdvancedMenu,
     AppScreenTx,
     AppScreenExperimentalTimeSettings,
     AppScreenPresetTimeInput,
     AppScreenLfSettings,
+    AppScreenTxRatioSettings,
     AppScreenSubGhzSettings,
     AppScreenSubGhzFreqInput,
     AppScreenDebugSettings,
@@ -79,10 +81,12 @@ typedef enum {
 typedef enum {
     Dcf77ViewStartup,
     Dcf77ViewMenu,
+    Dcf77ViewAdvancedMenu,
     Dcf77ViewTx,
     Dcf77ViewExperimentalTimeSettings,
     Dcf77ViewPresetTimeInput,
     Dcf77ViewLfSettings,
+    Dcf77ViewTxRatioSettings,
     Dcf77ViewSubGhzSettings,
     Dcf77ViewSubGhzFreqInput,
     Dcf77ViewDebugSettings,
@@ -94,11 +98,16 @@ typedef enum {
 typedef enum {
     Dcf77MenuItemStart,
     Dcf77MenuItemLfSettings,
-    Dcf77MenuItemSubGhzSettings,
-    Dcf77MenuItemExperimentalTimeSettings,
-    Dcf77MenuItemDebugSettings,
+    Dcf77MenuItemAdvanced,
     Dcf77MenuItemAbout,
 } Dcf77MenuItem;
+
+typedef enum {
+    Dcf77AdvancedMenuItemSubGhzSettings,
+    Dcf77AdvancedMenuItemDebugSettings,
+    Dcf77AdvancedMenuItemExperimentalTimeSettings,
+    Dcf77AdvancedMenuItemTxRatioSettings,
+} Dcf77AdvancedMenuItem;
 
 typedef enum {
     SubGhzSignalModeDisabled,
@@ -196,7 +205,9 @@ typedef struct AppFSM {
 
     ViewDispatcher* view_dispatcher;
     Submenu* submenu;
+    Submenu* advanced_menu;
     VariableItemList* lf_settings;
+    VariableItemList* tx_ratio_settings;
     VariableItemList* experimental_time_settings_view;
     VariableItemList* subghz_settings;
     VariableItemList* debug_settings;

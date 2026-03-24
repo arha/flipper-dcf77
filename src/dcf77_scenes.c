@@ -21,8 +21,11 @@ enum {
     Dcf77LfSettingTransmit,
     Dcf77LfSettingFrequency,
     Dcf77LfSettingDefaultFrequency,
-    Dcf77LfSettingTxRatioX,
-    Dcf77LfSettingTxRatioY,
+};
+
+enum {
+    Dcf77TxRatioSettingX,
+    Dcf77TxRatioSettingY,
 };
 
 enum {
@@ -84,6 +87,16 @@ static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
     variable_item_set_current_value_index(
         app_fsm->lf_freq_item, dcf77_app_get_lf_freq_index(app_fsm->lf_freq));
     variable_item_set_current_value_text(app_fsm->lf_freq_item, app_fsm->lf_freq_text);
+    with_view_model(
+        variable_item_list_get_view(app_fsm->lf_settings),
+        void * model,
+        {
+            UNUSED(model);
+        },
+        true);
+}
+
+static void dcf77_tx_ratio_settings_sync(AppFSM* app_fsm) {
     variable_item_set_values_count(app_fsm->lf_tx_ratio_x_item, dcf77_app_get_tx_ratio_y(app_fsm));
     variable_item_set_current_value_index(app_fsm->lf_tx_ratio_x_item, app_fsm->tx_ratio_x - 1U);
     variable_item_set_current_value_text(app_fsm->lf_tx_ratio_x_item, app_fsm->tx_ratio_x_text);
@@ -91,7 +104,7 @@ static void dcf77_lf_settings_sync(AppFSM* app_fsm) {
     variable_item_set_current_value_index(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_index);
     variable_item_set_current_value_text(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_text);
     with_view_model(
-        variable_item_list_get_view(app_fsm->lf_settings),
+        variable_item_list_get_view(app_fsm->tx_ratio_settings),
         void * model,
         {
             UNUSED(model);
@@ -234,6 +247,12 @@ void dcf77_app_switch_to_menu(AppFSM* app_fsm) {
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewMenu);
 }
 
+void dcf77_app_switch_to_advanced_menu(AppFSM* app_fsm) {
+    app_fsm->screen = AppScreenAdvancedMenu;
+    submenu_set_selected_item(app_fsm->advanced_menu, Dcf77AdvancedMenuItemSubGhzSettings);
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewAdvancedMenu);
+}
+
 void dcf77_app_switch_to_about(AppFSM* app_fsm) {
     app_fsm->screen = AppScreenAbout;
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewAbout);
@@ -248,6 +267,12 @@ void dcf77_app_switch_to_lf_settings(AppFSM* app_fsm) {
     app_fsm->screen = AppScreenLfSettings;
     dcf77_lf_settings_sync(app_fsm);
     view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
+}
+
+void dcf77_app_switch_to_tx_ratio_settings(AppFSM* app_fsm) {
+    app_fsm->screen = AppScreenTxRatioSettings;
+    dcf77_tx_ratio_settings_sync(app_fsm);
+    view_dispatcher_switch_to_view(app_fsm->view_dispatcher, Dcf77ViewTxRatioSettings);
 }
 
 void dcf77_app_switch_to_experimental_time_settings(AppFSM* app_fsm) {
@@ -442,7 +467,7 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
     switch(event->key) {
     case InputKeyUp:
         if(selected == 0) {
-            selected = Dcf77LfSettingTxRatioY;
+            selected = Dcf77LfSettingDefaultFrequency;
         } else {
             selected--;
         }
@@ -450,7 +475,7 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
         return true;
     case InputKeyDown:
         selected++;
-        if(selected > Dcf77LfSettingTxRatioY) {
+        if(selected > Dcf77LfSettingDefaultFrequency) {
             selected = 0;
         }
         variable_item_list_set_selected_item(app_fsm->lf_settings, selected);
@@ -474,18 +499,6 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
             dcf77_app_settings_save(app_fsm);
             return true;
         }
-        if(selected == Dcf77LfSettingTxRatioX && app_fsm->tx_ratio_x > 1U) {
-            dcf77_app_set_tx_ratio_x(app_fsm, app_fsm->tx_ratio_x - 1U);
-            dcf77_lf_settings_sync(app_fsm);
-            dcf77_app_settings_save(app_fsm);
-            return true;
-        }
-        if(selected == Dcf77LfSettingTxRatioY && app_fsm->tx_ratio_y_index > 0U) {
-            dcf77_app_set_tx_ratio_y_index(app_fsm, app_fsm->tx_ratio_y_index - 1U);
-            dcf77_lf_settings_sync(app_fsm);
-            dcf77_app_settings_save(app_fsm);
-            return true;
-        }
         return selected == Dcf77LfSettingDefaultFrequency;
     case InputKeyRight:
         if(selected == Dcf77LfSettingSignal) {
@@ -503,20 +516,6 @@ bool dcf77_lf_settings_input_callback(InputEvent* event, void* ctx) {
             dcf77_app_set_signal_frequency(app_fsm, app_fsm->lf_freq + LF_FREQ_STEP);
             dcf77_lf_settings_sync(app_fsm);
             dcf77_app_apply_rf_settings(app_fsm);
-            dcf77_app_settings_save(app_fsm);
-            return true;
-        }
-        if(selected == Dcf77LfSettingTxRatioX &&
-           app_fsm->tx_ratio_x < dcf77_app_get_tx_ratio_y(app_fsm)) {
-            dcf77_app_set_tx_ratio_x(app_fsm, app_fsm->tx_ratio_x + 1U);
-            dcf77_lf_settings_sync(app_fsm);
-            dcf77_app_settings_save(app_fsm);
-            return true;
-        }
-        if(selected == Dcf77LfSettingTxRatioY &&
-           app_fsm->tx_ratio_y_index + 1U < dcf77_tx_ratio_y_count()) {
-            dcf77_app_set_tx_ratio_y_index(app_fsm, app_fsm->tx_ratio_y_index + 1U);
-            dcf77_lf_settings_sync(app_fsm);
             dcf77_app_settings_save(app_fsm);
             return true;
         }
@@ -543,6 +542,60 @@ void dcf77_lf_settings_enter_callback(void* ctx, uint32_t index) {
         dcf77_lf_settings_sync(app_fsm);
         dcf77_app_apply_rf_settings(app_fsm);
         dcf77_app_settings_save(app_fsm);
+    }
+}
+
+bool dcf77_tx_ratio_settings_input_callback(InputEvent* event, void* ctx) {
+    AppFSM* app_fsm = ctx;
+    uint8_t selected;
+
+    if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
+        return false;
+    }
+
+    selected = variable_item_list_get_selected_item_index(app_fsm->tx_ratio_settings);
+
+    switch(event->key) {
+    case InputKeyUp:
+        selected = (selected == 0U) ? Dcf77TxRatioSettingY : selected - 1U;
+        variable_item_list_set_selected_item(app_fsm->tx_ratio_settings, selected);
+        return true;
+    case InputKeyDown:
+        selected = (selected >= Dcf77TxRatioSettingY) ? 0U : selected + 1U;
+        variable_item_list_set_selected_item(app_fsm->tx_ratio_settings, selected);
+        return true;
+    case InputKeyLeft:
+        if(selected == Dcf77TxRatioSettingX && app_fsm->tx_ratio_x > 1U) {
+            dcf77_app_set_tx_ratio_x(app_fsm, app_fsm->tx_ratio_x - 1U);
+            dcf77_tx_ratio_settings_sync(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77TxRatioSettingY && app_fsm->tx_ratio_y_index > 0U) {
+            dcf77_app_set_tx_ratio_y_index(app_fsm, app_fsm->tx_ratio_y_index - 1U);
+            dcf77_tx_ratio_settings_sync(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        return false;
+    case InputKeyRight:
+        if(selected == Dcf77TxRatioSettingX &&
+           app_fsm->tx_ratio_x < dcf77_app_get_tx_ratio_y(app_fsm)) {
+            dcf77_app_set_tx_ratio_x(app_fsm, app_fsm->tx_ratio_x + 1U);
+            dcf77_tx_ratio_settings_sync(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        if(selected == Dcf77TxRatioSettingY &&
+           app_fsm->tx_ratio_y_index + 1U < dcf77_tx_ratio_y_count()) {
+            dcf77_app_set_tx_ratio_y_index(app_fsm, app_fsm->tx_ratio_y_index + 1U);
+            dcf77_tx_ratio_settings_sync(app_fsm);
+            dcf77_app_settings_save(app_fsm);
+            return true;
+        }
+        return false;
+    default:
+        return false;
     }
 }
 
@@ -1076,17 +1129,32 @@ void dcf77_menu_callback(void* ctx, uint32_t index) {
     case Dcf77MenuItemLfSettings:
         dcf77_app_switch_to_lf_settings(app_fsm);
         break;
-    case Dcf77MenuItemSubGhzSettings:
-        dcf77_app_switch_to_subghz_settings(app_fsm);
-        break;
-    case Dcf77MenuItemExperimentalTimeSettings:
-        dcf77_app_switch_to_experimental_time_settings(app_fsm);
-        break;
-    case Dcf77MenuItemDebugSettings:
-        dcf77_app_switch_to_debug_settings(app_fsm);
+    case Dcf77MenuItemAdvanced:
+        dcf77_app_switch_to_advanced_menu(app_fsm);
         break;
     case Dcf77MenuItemAbout:
         dcf77_app_switch_to_about(app_fsm);
+        break;
+    default:
+        break;
+    }
+}
+
+void dcf77_advanced_menu_callback(void* ctx, uint32_t index) {
+    AppFSM* app_fsm = ctx;
+
+    switch(index) {
+    case Dcf77AdvancedMenuItemSubGhzSettings:
+        dcf77_app_switch_to_subghz_settings(app_fsm);
+        break;
+    case Dcf77AdvancedMenuItemDebugSettings:
+        dcf77_app_switch_to_debug_settings(app_fsm);
+        break;
+    case Dcf77AdvancedMenuItemExperimentalTimeSettings:
+        dcf77_app_switch_to_experimental_time_settings(app_fsm);
+        break;
+    case Dcf77AdvancedMenuItemTxRatioSettings:
+        dcf77_app_switch_to_tx_ratio_settings(app_fsm);
         break;
     default:
         break;
@@ -1101,15 +1169,25 @@ bool dcf77_navigation_callback(void* ctx) {
         return true;
     }
 
-    if(app_fsm->screen == AppScreenLfSettings ||
-       app_fsm->screen == AppScreenExperimentalTimeSettings ||
-       app_fsm->screen == AppScreenSubGhzSettings ||
-       app_fsm->screen == AppScreenDebugSettings) {
+    if(app_fsm->screen == AppScreenAdvancedMenu) {
+        dcf77_app_switch_to_menu(app_fsm);
+        return true;
+    }
+
+    if(app_fsm->screen == AppScreenLfSettings) {
         if(app_fsm->screen == AppScreenLfSettings && !dcf77_app_signal_can_run(app_fsm)) {
             notification_message_block(app_fsm->notification, &sequence_error);
             return true;
         }
         dcf77_app_switch_to_menu(app_fsm);
+        return true;
+    }
+
+    if(app_fsm->screen == AppScreenExperimentalTimeSettings ||
+       app_fsm->screen == AppScreenTxRatioSettings ||
+       app_fsm->screen == AppScreenSubGhzSettings ||
+       app_fsm->screen == AppScreenDebugSettings) {
+        dcf77_app_switch_to_advanced_menu(app_fsm);
         return true;
     }
 

@@ -313,17 +313,37 @@ void dcf77_gui_init(AppFSM* app_fsm) {
     submenu_add_item(
         app_fsm->submenu, "Signal & LF", Dcf77MenuItemLfSettings, dcf77_menu_callback, app_fsm);
     submenu_add_item(
-        app_fsm->submenu, "SubGHz", Dcf77MenuItemSubGhzSettings, dcf77_menu_callback, app_fsm);
-    submenu_add_item(
-        app_fsm->submenu, "Debug", Dcf77MenuItemDebugSettings, dcf77_menu_callback, app_fsm);
-    submenu_add_item(
-        app_fsm->submenu,
-        "Experimental features",
-        Dcf77MenuItemExperimentalTimeSettings,
-        dcf77_menu_callback,
-        app_fsm);
+        app_fsm->submenu, "Advanced", Dcf77MenuItemAdvanced, dcf77_menu_callback, app_fsm);
     submenu_add_item(app_fsm->submenu, "About", Dcf77MenuItemAbout, dcf77_menu_callback, app_fsm);
     view_dispatcher_add_view(app_fsm->view_dispatcher, Dcf77ViewMenu, submenu_get_view(app_fsm->submenu));
+
+    app_fsm->advanced_menu = submenu_alloc();
+    submenu_add_item(
+        app_fsm->advanced_menu,
+        "SubGHz",
+        Dcf77AdvancedMenuItemSubGhzSettings,
+        dcf77_advanced_menu_callback,
+        app_fsm);
+    submenu_add_item(
+        app_fsm->advanced_menu,
+        "Debug",
+        Dcf77AdvancedMenuItemDebugSettings,
+        dcf77_advanced_menu_callback,
+        app_fsm);
+    submenu_add_item(
+        app_fsm->advanced_menu,
+        "Time warp",
+        Dcf77AdvancedMenuItemExperimentalTimeSettings,
+        dcf77_advanced_menu_callback,
+        app_fsm);
+    submenu_add_item(
+        app_fsm->advanced_menu,
+        "Tx Ratio",
+        Dcf77AdvancedMenuItemTxRatioSettings,
+        dcf77_advanced_menu_callback,
+        app_fsm);
+    view_dispatcher_add_view(
+        app_fsm->view_dispatcher, Dcf77ViewAdvancedMenu, submenu_get_view(app_fsm->advanced_menu));
 
     app_fsm->lf_settings = variable_item_list_alloc();
     app_fsm->lf_signal_item = variable_item_list_add(
@@ -357,15 +377,6 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         app_fsm->lf_settings, "Default frequency", 1, NULL, app_fsm);
     variable_item_set_current_value_text(app_fsm->lf_default_freq_item, "");
 
-    app_fsm->lf_tx_ratio_x_item =
-        variable_item_list_add(app_fsm->lf_settings, "tx x/y x=", 1, NULL, app_fsm);
-    variable_item_set_current_value_text(app_fsm->lf_tx_ratio_x_item, app_fsm->tx_ratio_x_text);
-
-    app_fsm->lf_tx_ratio_y_item = variable_item_list_add(
-        app_fsm->lf_settings, "tx x/y y=", (uint8_t)dcf77_tx_ratio_y_count(), NULL, app_fsm);
-    variable_item_set_current_value_index(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_index);
-    variable_item_set_current_value_text(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_text);
-
     variable_item_list_set_enter_callback(
         app_fsm->lf_settings, dcf77_lf_settings_enter_callback, app_fsm);
     view_set_context(variable_item_list_get_view(app_fsm->lf_settings), app_fsm);
@@ -375,6 +386,22 @@ void dcf77_gui_init(AppFSM* app_fsm) {
         app_fsm->view_dispatcher,
         Dcf77ViewLfSettings,
         variable_item_list_get_view(app_fsm->lf_settings));
+
+    app_fsm->tx_ratio_settings = variable_item_list_alloc();
+    app_fsm->lf_tx_ratio_x_item =
+        variable_item_list_add(app_fsm->tx_ratio_settings, "Send x times", 1, NULL, app_fsm);
+    variable_item_set_current_value_text(app_fsm->lf_tx_ratio_x_item, app_fsm->tx_ratio_x_text);
+    app_fsm->lf_tx_ratio_y_item = variable_item_list_add(
+        app_fsm->tx_ratio_settings, "Out of", (uint8_t)dcf77_tx_ratio_y_count(), NULL, app_fsm);
+    variable_item_set_current_value_index(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_index);
+    variable_item_set_current_value_text(app_fsm->lf_tx_ratio_y_item, app_fsm->tx_ratio_y_text);
+    view_set_context(variable_item_list_get_view(app_fsm->tx_ratio_settings), app_fsm);
+    view_set_input_callback(
+        variable_item_list_get_view(app_fsm->tx_ratio_settings), dcf77_tx_ratio_settings_input_callback);
+    view_dispatcher_add_view(
+        app_fsm->view_dispatcher,
+        Dcf77ViewTxRatioSettings,
+        variable_item_list_get_view(app_fsm->tx_ratio_settings));
 
     app_fsm->experimental_time_settings_view = variable_item_list_alloc();
     app_fsm->experimental_time_enabled_item = variable_item_list_add(
@@ -561,7 +588,9 @@ void dcf77_gui_deinit(AppFSM* app_fsm) {
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewSubGhzSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewPresetTimeInput);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewExperimentalTimeSettings);
+    view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewTxRatioSettings);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewLfSettings);
+    view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewAdvancedMenu);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewTx);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewMenu);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewStartup);
@@ -574,7 +603,9 @@ void dcf77_gui_deinit(AppFSM* app_fsm) {
     variable_item_list_free(app_fsm->debug_settings);
     variable_item_list_free(app_fsm->subghz_settings);
     variable_item_list_free(app_fsm->experimental_time_settings_view);
+    variable_item_list_free(app_fsm->tx_ratio_settings);
     variable_item_list_free(app_fsm->lf_settings);
+    submenu_free(app_fsm->advanced_menu);
     submenu_free(app_fsm->submenu);
     widget_free(app_fsm->startup_widget);
     view_dispatcher_free(app_fsm->view_dispatcher);
