@@ -27,6 +27,10 @@ It uses its internal LF antenna to do a very bad emulation of 77.5 kHz. With som
 * FZ does not do power modulation, it is simply on/off. The real transmitter modulates between full and reduced power. 
 * The internal LF antenna is bad and you should feel bad for abusing it. 
 * SubGHZ debugging (FSK and especially 100% FSK) is probably not great on CC1101 long term. There's a TX timeout option included.
+* 100% FSK means there is no deviation happening during the dead time, but a carrier is still transmitted. This essentially keeps the CC1101 on 100% of the time, and it tends to drift.
+* SubGHZ debugging in FSK modes means you will _hear_ a tone in your NFM receiver. Below is an example where my Flipper attempts to reverse COVID and 2020, by moving backwards in time at the rate of 1h/min. A very common NFM receiver beeps and boops in sync. 
+
+![Time warp UV5R](docs/time-warp-baofeng.webp)
 
 # Todo
 
