@@ -50,7 +50,9 @@ Enhanced debugging for writing your own radioclock software, including RF output
 * 100% FSK means there is no deviation happening during the dead time, but a carrier is still transmitted. This essentially keeps the CC1101 on 100% of the time, and it tends to drift.
 * SubGHZ debugging in FSK modes means you will _hear_ a tone in your NFM receiver. Below is an example where my Flipper attempts to reverse COVID and 2020, by moving backwards in time at the rate of 1h/min. A very common NFM receiver beeps and boops in sync. 
 
-![Time warp UV5R](docs/time-warp-baofeng.webp)
+<p align="center">
+  <img src="docs/time-warp-baofeng.webp" alt="Time warp UV5R" />
+</p>
 
 # Todo
 
