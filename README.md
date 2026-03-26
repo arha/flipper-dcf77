@@ -5,6 +5,26 @@ Compiled against 1.4.3. It's a radio clock emulator lab.
 
 It uses its internal LF antenna to do a very bad emulation of 77.5 kHz. With some receivers, it does better if you try 125 kHz - the Flipper's resonant frequency - and move it very close, overloading it. With some receivers it does nothing. If you want to build a (home/room level) antenna, either try using through a tuned ferrite rod to ground, or with a transistor driven by the RF signal output. It's not really RF though, a 77.5 kHz signal from the Flipper won't travel more than a few meters.  Building a portable antenna for the LF/VLF band is left as an exercise for the reader.
 
+Send real or custom time, choose how fast time moves and in what direction.
+
+<p align="center">
+  <img src="docs/1.png" width="256" height="128" />
+  <img src="docs/2.png" width="256" height="128" />
+</p>
+
+Multiple clocks supported; LF frequency can be changed at will. Try harmonics!
+
+<p align="center">
+  <img src="docs/3.png" width="256" height="128" />
+</p>
+
+Enhanced debugging for writing your own radioclock software, including RF output and SubGHz audio.
+
+<p align="center">
+  <img src="docs/4.png" width="256" height="128" />
+  <img src="docs/5.png" width="256" height="128" />
+</p>
+
 # Features
 
 * Wonky time experiments: 
@@ -30,7 +50,9 @@ It uses its internal LF antenna to do a very bad emulation of 77.5 kHz. With som
 * 100% FSK means there is no deviation happening during the dead time, but a carrier is still transmitted. This essentially keeps the CC1101 on 100% of the time, and it tends to drift.
 * SubGHZ debugging in FSK modes means you will _hear_ a tone in your NFM receiver. Below is an example where my Flipper attempts to reverse COVID and 2020, by moving backwards in time at the rate of 1h/min. A very common NFM receiver beeps and boops in sync. 
 
-![Time warp UV5R](docs/time-warp-baofeng.webp)
+<p align="center">
+  <img src="docs/time-warp-baofeng.webp" alt="Time warp UV5R" />
+</p>
 
 # Todo
 
