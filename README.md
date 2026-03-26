@@ -5,8 +5,6 @@ Compiled against 1.4.3. It's a radio clock emulator lab.
 
 It uses its internal LF antenna to do a very bad emulation of 77.5 kHz. With some receivers, it does better if you try 125 kHz - the Flipper's resonant frequency - and move it very close, overloading it. With some receivers it does nothing. If you want to build a (home/room level) antenna, either try using through a tuned ferrite rod to ground, or with a transistor driven by the RF signal output. It's not really RF though, a 77.5 kHz signal from the Flipper won't travel more than a few meters.  Building a portable antenna for the LF/VLF band is left as an exercise for the reader.
 
-# Features
-
 Send real or custom time, choose how fast time moves and in what direction.
 
 <p align="center">
@@ -26,6 +24,8 @@ Enhanced debugging for writing your own radioclock software, including RF output
   <img src="docs/4.png" width="256" height="128" />
   <img src="docs/5.png" width="256" height="128" />
 </p>
+
+# Features
 
 * Wonky time experiments: 
   1. you can make time stop or go backwards
