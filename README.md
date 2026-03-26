@@ -7,6 +7,26 @@ It uses its internal LF antenna to do a very bad emulation of 77.5 kHz. With som
 
 # Features
 
+Send real or custom time, choose how fast time moves and in what direction.
+
+<p align="center">
+  <img src="docs/1.png" width="256" height="128" />
+  <img src="docs/2.png" width="256" height="128" />
+</p>
+
+Multiple clocks supported; LF frequency can be changed at will. Try harmonics!
+
+<p align="center">
+  <img src="docs/3.png" width="256" height="128" />
+</p>
+
+Enhanced debugging for writing your own radioclock software, including RF output and SubGHz audio.
+
+<p align="center">
+  <img src="docs/4.png" width="256" height="128" />
+  <img src="docs/5.png" width="256" height="128" />
+</p>
+
 * Wonky time experiments: 
   1. you can make time stop or go backwards
   2. you can alter the time speed - how many seconds must pass to increment the time sent? 1 minute as usual, or 5? You could consider every 10 seconds a full minute, so minutes would pass by 6x faster. Good to shoo away annoying guests. Better if they have a radioclock watch.
