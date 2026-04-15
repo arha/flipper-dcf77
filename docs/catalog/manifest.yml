@@ -2,7 +2,7 @@ sourcecode:
   type: git
   location:
     origin: https://github.com/arha/flipper-dcf77.git
-    commit_sha: TO_BE_FILLED_AFTER_COMMIT
+    commit_sha: 05e44b18a507cd0cd8400e8b9ba33243d919cdb5
 short_description: "Radio clock emulator lab with LF and SubGHz debug output"
 description: "@docs/catalog/README.md"
 changelog: "@docs/changelog.md"
