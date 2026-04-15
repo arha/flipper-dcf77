@@ -22,8 +22,6 @@ Send real or custom time, choose how fast time moves and in what direction.
 
 # Technical details
 
-### Yes, it finally has an UI!
-
 * It works on every clock I own _eventually_. DCF77 is slow, it sends a complete update once per minute. Sometimes it works on the first try, sometimes I have to wait more than 5 attempts.
 * I only had limited hardware to test HBG and JJY, so support there is less certain. MSF, WWVB, BPC, and BSF currently have better protocol-side coverage than real-world validation.
 * Not doing anything but timed OOK. No PSK, no FSK.
