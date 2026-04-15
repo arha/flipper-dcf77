@@ -214,7 +214,7 @@ typedef struct AppFSM {
     NumberInput* subghz_freq_input;
     Dcf77ExperimentalTimeInput* preset_time_input;
     Widget* startup_widget;
-    Widget* about_widget;
+    View* about_view;
     Widget* egg_widget;
     View* gpio_rf_warning_view;
     View* tx_view;

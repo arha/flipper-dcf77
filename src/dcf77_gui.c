@@ -12,6 +12,231 @@ static const char about_text[] =
 
 static const char egg_text[] = "wow you found an easter egg\n";
 
+enum {
+    DCF77_ABOUT_TEXT_X = 4,
+    DCF77_ABOUT_TEXT_Y = 4,
+    DCF77_ABOUT_TEXT_WIDTH = 116,
+    DCF77_ABOUT_TEXT_HEIGHT = 46,
+    DCF77_ABOUT_SCROLLBAR_X = 124,
+    DCF77_ABOUT_LINE_BUFFER_SIZE = 96,
+};
+
+typedef struct {
+    uint8_t scroll_pos;
+    uint8_t scroll_pos_total;
+} Dcf77AboutViewModel;
+
+static size_t dcf77_about_next_line(
+    Canvas* canvas,
+    const char* text,
+    size_t start,
+    char* line,
+    size_t line_size) {
+    size_t pos = start;
+    size_t len = 0U;
+    size_t width = 0U;
+    size_t last_space_pos = 0U;
+    size_t last_space_len = 0U;
+    bool has_last_space = false;
+
+    if(text[pos] == '\0') {
+        line[0] = '\0';
+        return pos;
+    }
+
+    if(text[pos] == '\n') {
+        line[0] = '\0';
+        return pos + 1U;
+    }
+
+    while(text[pos] != '\0' && text[pos] != '\n') {
+        const char ch = text[pos];
+        const size_t glyph_width = canvas_glyph_width(canvas, ch);
+
+        if(len > 0U && (width + glyph_width) > DCF77_ABOUT_TEXT_WIDTH) {
+            if(has_last_space) {
+                pos = last_space_pos + 1U;
+                len = last_space_len;
+            }
+            break;
+        }
+
+        if(len + 1U < line_size) {
+            line[len++] = ch;
+        }
+        width += glyph_width;
+
+        if(ch == ' ') {
+            has_last_space = true;
+            last_space_pos = pos;
+            last_space_len = len - 1U;
+        }
+
+        pos++;
+    }
+
+    if(pos == start) {
+        line[0] = text[pos];
+        line[1] = '\0';
+        pos++;
+    } else {
+        while(len > 0U && line[len - 1U] == ' ') {
+            len--;
+        }
+        line[len] = '\0';
+    }
+
+    if(text[pos] == '\n') {
+        pos++;
+    }
+
+    return pos;
+}
+
+static uint8_t dcf77_about_visible_lines(const CanvasFontParameters* font_params) {
+    uint8_t lines = 0U;
+    uint16_t y = 0U;
+
+    while((y + font_params->descender) <= DCF77_ABOUT_TEXT_HEIGHT) {
+        lines++;
+        y += font_params->leading_default;
+    }
+
+    return lines > 0U ? lines : 1U;
+}
+
+static uint8_t dcf77_about_total_lines(Canvas* canvas) {
+    char line[DCF77_ABOUT_LINE_BUFFER_SIZE];
+    size_t pos = 0U;
+    uint8_t total = 0U;
+
+    while(about_text[pos] != '\0') {
+        const size_t next = dcf77_about_next_line(canvas, about_text, pos, line, sizeof(line));
+        total++;
+        if(next <= pos) {
+            break;
+        }
+        pos = next;
+    }
+
+    return total > 0U ? total : 1U;
+}
+
+static void dcf77_about_enter_callback(void* ctx) {
+    AppFSM* app_fsm = ctx;
+
+    with_view_model(
+        app_fsm->about_view,
+        Dcf77AboutViewModel * model,
+        {
+            model->scroll_pos = 0U;
+            model->scroll_pos_total = 1U;
+        },
+        true);
+}
+
+static void dcf77_about_render_callback(Canvas* canvas, void* model) {
+    Dcf77AboutViewModel* about_model = model;
+    char line[DCF77_ABOUT_LINE_BUFFER_SIZE];
+    const CanvasFontParameters* font_params;
+    uint8_t visible_lines;
+    uint8_t total_lines;
+    uint8_t first_line;
+    uint8_t last_line;
+    uint8_t line_index = 0U;
+    uint8_t draw_y = DCF77_ABOUT_TEXT_Y;
+    size_t pos = 0U;
+
+    canvas_clear(canvas);
+    canvas_draw_frame(canvas, 0, 0, 128, 64);
+    elements_button_left(canvas, "Back");
+    canvas_set_font(canvas, FontSecondary);
+
+    font_params = canvas_get_font_params(canvas, FontSecondary);
+    visible_lines = dcf77_about_visible_lines(font_params);
+    total_lines = dcf77_about_total_lines(canvas);
+    about_model->scroll_pos_total =
+        total_lines > visible_lines ? (uint8_t)(total_lines - visible_lines + 1U) : 1U;
+    if(about_model->scroll_pos >= about_model->scroll_pos_total) {
+        about_model->scroll_pos = about_model->scroll_pos_total - 1U;
+    }
+
+    first_line = about_model->scroll_pos;
+    last_line = first_line + visible_lines;
+
+    while(about_text[pos] != '\0') {
+        const size_t next = dcf77_about_next_line(canvas, about_text, pos, line, sizeof(line));
+
+        if(line_index >= first_line && line_index < last_line) {
+            canvas_draw_str_aligned(
+                canvas, DCF77_ABOUT_TEXT_X, draw_y, AlignLeft, AlignTop, line);
+            draw_y += font_params->leading_default;
+        }
+
+        line_index++;
+        if(next <= pos || line_index >= last_line) {
+            break;
+        }
+        pos = next;
+    }
+
+    if(about_model->scroll_pos_total > 1U) {
+        elements_scrollbar_pos(
+            canvas,
+            DCF77_ABOUT_SCROLLBAR_X,
+            DCF77_ABOUT_TEXT_Y,
+            DCF77_ABOUT_TEXT_HEIGHT,
+            about_model->scroll_pos,
+            about_model->scroll_pos_total);
+    }
+}
+
+static bool dcf77_about_input_callback(InputEvent* event, void* ctx) {
+    AppFSM* app_fsm = ctx;
+
+    if(event->type == InputTypePress) {
+        switch(event->key) {
+        case InputKeyLeft:
+        case InputKeyBack:
+            dcf77_app_switch_to_menu(app_fsm);
+            return true;
+        case InputKeyRight:
+            dcf77_app_switch_to_egg(app_fsm);
+            return true;
+        default:
+            break;
+        }
+    }
+
+    if(event->type == InputTypeShort || event->type == InputTypeRepeat) {
+        bool handled = false;
+
+        with_view_model(
+            app_fsm->about_view,
+            Dcf77AboutViewModel * model,
+            {
+                if(event->key == InputKeyUp) {
+                    if(model->scroll_pos > 0U) {
+                        model->scroll_pos--;
+                    }
+                    handled = true;
+                } else if(event->key == InputKeyDown) {
+                    if(model->scroll_pos + 1U < model->scroll_pos_total) {
+                        model->scroll_pos++;
+                    }
+                    handled = true;
+                }
+            },
+            handled);
+
+        if(handled) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static const char* dcf77_tx_lf_state_label(const AppFSM* app_fsm) {
     return app_fsm->lf_ready ? "on" : "off";
 }
@@ -556,16 +781,23 @@ void dcf77_gui_init(AppFSM* app_fsm) {
     view_set_previous_callback(app_fsm->tx_view, dcf77_tx_previous_callback);
     view_dispatcher_add_view(app_fsm->view_dispatcher, Dcf77ViewTx, app_fsm->tx_view);
 
-    app_fsm->about_widget = widget_alloc();
-    widget_add_frame_element(app_fsm->about_widget, 0, 0, 128, 64, 0);
-    widget_add_text_scroll_element(app_fsm->about_widget, 4, 4, 120, 46, about_text);
-    widget_add_button_element(
-        app_fsm->about_widget, GuiButtonTypeLeft, "Back", dcf77_about_button_callback, app_fsm);
-    view_set_context(widget_get_view(app_fsm->about_widget), app_fsm);
-    view_set_input_callback(widget_get_view(app_fsm->about_widget), dcf77_about_input_callback);
-    view_set_previous_callback(widget_get_view(app_fsm->about_widget), dcf77_text_previous_callback);
-    view_dispatcher_add_view(
-        app_fsm->view_dispatcher, Dcf77ViewAbout, widget_get_view(app_fsm->about_widget));
+    app_fsm->about_view = view_alloc();
+    view_allocate_model(
+        app_fsm->about_view, ViewModelTypeLockFree, sizeof(Dcf77AboutViewModel));
+    with_view_model(
+        app_fsm->about_view,
+        Dcf77AboutViewModel * about_model,
+        {
+            about_model->scroll_pos = 0U;
+            about_model->scroll_pos_total = 1U;
+        },
+        false);
+    view_set_context(app_fsm->about_view, app_fsm);
+    view_set_draw_callback(app_fsm->about_view, dcf77_about_render_callback);
+    view_set_input_callback(app_fsm->about_view, dcf77_about_input_callback);
+    view_set_enter_callback(app_fsm->about_view, dcf77_about_enter_callback);
+    view_set_previous_callback(app_fsm->about_view, dcf77_text_previous_callback);
+    view_dispatcher_add_view(app_fsm->view_dispatcher, Dcf77ViewAbout, app_fsm->about_view);
 
     app_fsm->egg_widget = widget_alloc();
     widget_add_frame_element(app_fsm->egg_widget, 0, 0, 128, 64, 0);
@@ -595,7 +827,7 @@ void dcf77_gui_deinit(AppFSM* app_fsm) {
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewMenu);
     view_dispatcher_remove_view(app_fsm->view_dispatcher, Dcf77ViewStartup);
     widget_free(app_fsm->egg_widget);
-    widget_free(app_fsm->about_widget);
+    view_free(app_fsm->about_view);
     view_free(app_fsm->gpio_rf_warning_view);
     view_free(app_fsm->tx_view);
     dcf77_experimental_time_input_free(app_fsm->preset_time_input);

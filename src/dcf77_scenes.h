@@ -18,9 +18,7 @@ void dcf77_app_stop_tx(AppFSM* app_fsm);
 
 uint32_t dcf77_tx_previous_callback(void* ctx);
 uint32_t dcf77_text_previous_callback(void* ctx);
-void dcf77_about_button_callback(GuiButtonType result, InputType type, void* ctx);
 void dcf77_egg_button_callback(GuiButtonType result, InputType type, void* ctx);
-bool dcf77_about_input_callback(InputEvent* event, void* ctx);
 bool dcf77_egg_input_callback(InputEvent* event, void* ctx);
 bool dcf77_tx_input_callback(InputEvent* event, void* ctx);
 void dcf77_menu_callback(void* ctx, uint32_t index);

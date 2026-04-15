@@ -3,18 +3,10 @@
 #include <datetime/datetime.h>
 #include <notification/notification.h>
 #include <notification/notification_messages.h>
-#include <m-array.h>
-#include <applications/services/gui/modules/widget_elements/widget_element_i.h>
 
 #include "dcf77_gui.h"
 #include "dcf77_hw.h"
 #include "dcf77_logic.h"
-
-ARRAY_DEF(ElementArray, WidgetElement*, M_PTR_OPLIST); // NOLINT
-
-typedef struct {
-    ElementArray_t element;
-} GuiWidgetModel;
 
 enum {
     Dcf77LfSettingSignal,
@@ -1032,19 +1024,6 @@ bool dcf77_gpio_rf_warning_input_callback(InputEvent* event, void* ctx) {
     }
 }
 
-void dcf77_about_button_callback(GuiButtonType result, InputType type, void* ctx) {
-    AppFSM* app_fsm = ctx;
-    if(type != InputTypePress) {
-        return;
-    }
-
-    if(result == GuiButtonTypeLeft) {
-        dcf77_app_switch_to_menu(app_fsm);
-    } else if(result == GuiButtonTypeRight) {
-        dcf77_app_switch_to_egg(app_fsm);
-    }
-}
-
 void dcf77_egg_button_callback(GuiButtonType result, InputType type, void* ctx) {
     AppFSM* app_fsm = ctx;
     if(type != InputTypePress) {
@@ -1054,37 +1033,6 @@ void dcf77_egg_button_callback(GuiButtonType result, InputType type, void* ctx) 
     if(result == GuiButtonTypeLeft) {
         dcf77_app_switch_to_about(app_fsm);
     }
-}
-
-bool dcf77_about_input_callback(InputEvent* event, void* ctx) {
-    AppFSM* app_fsm = ctx;
-
-    if(event->key == InputKeyRight && event->type == InputTypePress) {
-        dcf77_app_switch_to_egg(app_fsm);
-        return true;
-    }
-
-    bool consumed = false;
-    /* Keep the stock widget/text-scroll behavior by forwarding input to its elements.
-       Replacing the widget input callback entirely breaks About scrolling, but we still
-       intercept hidden Right-presses above so the easter egg stays undisclosed. */
-    with_view_model(
-        widget_get_view(app_fsm->about_widget),
-        GuiWidgetModel * model,
-        {
-            ElementArray_it_t it;
-            ElementArray_it(it, model->element);
-            while(!ElementArray_end_p(it)) {
-                WidgetElement* element = *ElementArray_ref(it);
-                if(element->input != NULL) {
-                    consumed |= element->input(event, element);
-                }
-                ElementArray_next(it);
-            }
-        },
-        true);
-
-    return consumed;
 }
 
 bool dcf77_egg_input_callback(InputEvent* event, void* ctx) {
